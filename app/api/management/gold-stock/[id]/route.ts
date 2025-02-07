@@ -1,16 +1,15 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { goldAssets } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { eq } from 'drizzle-orm';
 
-export async function PUT(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+
   try {
     const user = await getUser();
-    
+
     if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -18,7 +17,7 @@ export async function PUT(
       );
     }
 
-    const id = parseInt(context.params.id);
+    const id = parseInt((await params).id);
     const { amount, purchasePrice } = await request.json();
 
     // Update the gold asset
@@ -43,11 +42,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getUser();
-    
+
     if (!user || user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -55,7 +54,7 @@ export async function DELETE(
       );
     }
 
-    const id = parseInt(context.params.id);
+    const id = parseInt((await params).id);
 
     await db
       .delete(goldAssets)
