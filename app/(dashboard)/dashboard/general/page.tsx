@@ -105,66 +105,15 @@ export default function GeneralPage() {
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className={`text-lg lg:text-2xl font-medium mb-6 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-        General Settings
+       ตั้งค่าบัญชีธนาคาร
       </h1>
 
       <div className="space-y-6">
-        <Card className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
-          <CardHeader>
-            <CardTitle className={theme === 'dark' ? 'text-white' : ''}>Account Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={handleAccountSubmit}>
-              <div>
-                <Label htmlFor="name" className={theme === 'dark' ? 'text-white' : ''}>Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  placeholder="Enter your name"
-                  defaultValue={user?.name || ''}
-                  required
-                  className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
-                />
-              </div>
-              <div>
-                <Label htmlFor="email" className={theme === 'dark' ? 'text-white' : ''}>Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  defaultValue={user?.email || ''}
-                  required
-                  className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
-                />
-              </div>
-              {accountState.error && (
-                <p className="text-red-500 text-sm">{accountState.error}</p>
-              )}
-              {accountState.success && (
-                <p className="text-green-500 text-sm">{accountState.success}</p>
-              )}
-              <Button
-                type="submit"
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={isAccountPending}
-              >
-                {isAccountPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+       
 
         <Card className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
           <CardHeader>
-            <CardTitle className={theme === 'dark' ? 'text-white' : ''}>Bank Account Information</CardTitle>
+            <CardTitle className={theme === 'dark' ? 'text-white' : ''}>ข้อมูลบัญชีธนาคาร</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -174,7 +123,7 @@ export default function GeneralPage() {
             ) : (
               <form className="space-y-4" onSubmit={handleBankSubmit}>
                 <div>
-                  <Label htmlFor="bank" className={theme === 'dark' ? 'text-white' : ''}>Bank</Label>
+                  <Label htmlFor="bank" className={theme === 'dark' ? 'text-white' : ''}>ชื่อธนาคาร</Label>
                   <Select 
                     name="bank" 
                     required 
@@ -198,7 +147,7 @@ export default function GeneralPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="bankAccountNo" className={theme === 'dark' ? 'text-white' : ''}>Bank Account Number</Label>
+                  <Label htmlFor="bankAccountNo" className={theme === 'dark' ? 'text-white' : ''}>เลขที่บัญชีธนาคาร</Label>
                   <Input
                     id="bankAccountNo"
                     name="bankAccountNo"
@@ -210,7 +159,7 @@ export default function GeneralPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="bankAccountName" className={theme === 'dark' ? 'text-white' : ''}>Name of Bank Account</Label>
+                  <Label htmlFor="bankAccountName" className={theme === 'dark' ? 'text-white' : ''}>ชื่อเจ้าของบัญชีธนาคาร</Label>
                   <Input
                     id="bankAccountName"
                     name="bankAccountName"
