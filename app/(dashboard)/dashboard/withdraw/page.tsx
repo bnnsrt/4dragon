@@ -158,7 +158,7 @@ export default function WithdrawPage() {
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className={`text-lg lg:text-2xl font-medium mb-6 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-        Withdraw Gold
+        ขอรับทอง
       </h1>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -172,7 +172,7 @@ export default function WithdrawPage() {
           <CardContent>
             <form onSubmit={handleWithdraw} className="space-y-6">
               <div className="space-y-2">
-                <Label className={theme === 'dark' ? 'text-white' : ''}>Select Gold Type</Label>
+                <Label className={theme === 'dark' ? 'text-white' : ''}>เลือกประเภททองคำ</Label>
                 <div className="grid gap-4">
                   {assets.map((asset) => (
                     <Button
@@ -208,7 +208,7 @@ export default function WithdrawPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="amount" className={theme === 'dark' ? 'text-white' : ''}>
-                  Withdrawal Amount (กรัม)
+                  ระบุจำนวนทอง(กรัม)
                 </Label>
                 <Input
                   id="amount"
@@ -233,7 +233,7 @@ export default function WithdrawPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name" className={theme === 'dark' ? 'text-white' : ''}>Name</Label>
+                <Label htmlFor="name" className={theme === 'dark' ? 'text-white' : ''}>ชื่อ</Label>
                 <Input
                   id="name"
                   type="text"
@@ -246,7 +246,7 @@ export default function WithdrawPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="tel" className={theme === 'dark' ? 'text-white' : ''}>Telephone</Label>
+                <Label htmlFor="tel" className={theme === 'dark' ? 'text-white' : ''}>เบอร์ติดต่อ</Label>
                 <Input
                   id="tel"
                   type="tel"
@@ -259,7 +259,7 @@ export default function WithdrawPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address" className={theme === 'dark' ? 'text-white' : ''}>Address</Label>
+                <Label htmlFor="address" className={theme === 'dark' ? 'text-white' : ''}>ที่อยู​่</Label>
                 <Input
                   id="address"
                   type="text"
