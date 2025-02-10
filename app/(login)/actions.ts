@@ -17,6 +17,7 @@ import {
   invitations,
   bankAccounts,
   depositLimits,
+  userBalances,
 } from '@/lib/db/schema';
 import { comparePasswords, hashPassword, setSession, deleteSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
@@ -141,12 +142,38 @@ export const signUp = validatedAction(signUpSchema, async (data, formData): Prom
 
   const passwordHash = await hashPassword(password);
 
-  // Get default deposit limit (Level 1)
+  // Get or create Level 1 deposit limit
+  let depositLimitId: number;
   const [defaultLimit] = await db
     .select()
     .from(depositLimits)
     .where(eq(depositLimits.name, 'Level 1'))
     .limit(1);
+
+  if (!defaultLimit) {
+    // Get admin user for created_by
+    const [admin] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, ADMIN_EMAIL))
+      .limit(1);
+
+    const adminId = admin?.id || 1; // Fallback to ID 1 if no admin found
+
+    const [newLimit] = await db
+      .insert(depositLimits)
+      .values({
+        name: 'Level 1',
+        dailyLimit: '10000',
+        monthlyLimit: '10000',
+        createdBy: adminId,
+      })
+      .returning();
+    
+    depositLimitId = newLimit.id;
+  } else {
+    depositLimitId = defaultLimit.id;
+  }
 
   const newUser: NewUser = {
     email,
@@ -154,7 +181,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData): Prom
     phone,
     passwordHash,
     role: email === ADMIN_EMAIL ? 'owner' : 'member',
-    depositLimitId: defaultLimit?.id,
+    depositLimitId,
   };
 
   const [createdUser] = await db.insert(users).values(newUser).returning();
@@ -162,6 +189,12 @@ export const signUp = validatedAction(signUpSchema, async (data, formData): Prom
   if (!createdUser) {
     return { error: 'Failed to create user. Please try again.' };
   }
+
+  // Create initial balance record
+  await db.insert(userBalances).values({
+    userId: createdUser.id,
+    balance: '0',
+  });
 
   let teamId: number;
   let userRole: string;
@@ -343,7 +376,9 @@ export const deleteAccount = validatedActionWithUser(
         );
     }
 
-    (await cookies()).delete('session');
+    const cookieStore = cookies();
+    (await cookieStore).delete('session');
+    
     redirect('/sign-in');
     return {}; // TypeScript needs this even though redirect() throws
   }

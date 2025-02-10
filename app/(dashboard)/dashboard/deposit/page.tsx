@@ -29,6 +29,7 @@ interface DepositLimit {
   id: number;
   name: string;
   dailyLimit: string;
+  monthlyLimit: string;
 }
 
 export default function DepositPage() {
