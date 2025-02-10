@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { goldAssets } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
+import { sendGoldStockNotification } from '@/lib/telegram/bot';
 
 export async function POST(request: Request) {
   try {
@@ -23,6 +24,19 @@ export async function POST(request: Request) {
       amount,
       purchasePrice,
     });
+
+    // Send Telegram notification without throwing errors
+    try {
+      await sendGoldStockNotification({
+        adminName: user.name || user.email,
+        goldType,
+        amount: Number(amount),
+        purchasePrice: Number(purchasePrice)
+      });
+    } catch (notificationError) {
+      // Just log notification errors without affecting the main flow
+      console.error('Failed to send Telegram notification:', notificationError);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

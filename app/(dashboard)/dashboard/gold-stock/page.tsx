@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus, Pencil, Trash2, Scissors } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -149,7 +149,7 @@ export default function GoldStockPage() {
     }
   }
 
-  async function handleEdit(asset: GoldAsset) {
+  const handleEdit = async (asset: GoldAsset) => {
     setSelectedAsset(asset);
     setFormData({
       goldType: asset.goldType,
@@ -157,7 +157,48 @@ export default function GoldStockPage() {
       purchasePrice: asset.purchasePrice,
     });
     setIsDialogOpen(true);
-  }
+  };
+
+  const handleCut = async (asset: GoldAsset) => {
+    const currentAmount = Number(asset.amount);
+    const cutAmount = prompt(`Enter amount to cut (current: ${currentAmount.toFixed(4)} baht):`);
+    
+    if (!cutAmount) return;
+    
+    const cutAmountNum = Number(cutAmount);
+    if (isNaN(cutAmountNum) || cutAmountNum <= 0 || cutAmountNum >= currentAmount) {
+      toast.error('Please enter a valid amount less than the current amount');
+      return;
+    }
+
+    const newAmount = currentAmount - cutAmountNum;
+    setIsProcessing(true);
+
+    try {
+      const response = await fetch(`/api/management/gold-stock/${asset.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: newAmount,
+          purchasePrice: asset.purchasePrice,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cut gold stock');
+      }
+
+      toast.success('Gold stock cut successfully');
+      fetchGoldAssets();
+    } catch (error) {
+      console.error('Error cutting gold stock:', error);
+      toast.error('Failed to cut gold stock');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   async function handleDelete(assetId: number) {
     if (!confirm('Are you sure you want to delete this stock entry?')) return;
@@ -300,6 +341,18 @@ export default function GoldStockPage() {
                               className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#202020]' : ''}
                             >
                               <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCut(asset)}
+                              className={`${
+                                theme === 'dark' 
+                                  ? 'border-[#2A2A2A] hover:bg-[#202020] text-yellow-500' 
+                                  : 'text-yellow-600 hover:bg-yellow-50'
+                              }`}
+                            >
+                              <Scissors className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="outline"

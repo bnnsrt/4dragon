@@ -8,12 +8,20 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, {
 // Convert chat ID to number since Telegram API requires numeric chat IDs
 const getChatId = () => {
   const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!chatId) return null;
+  if (!chatId) {
+    console.error('TELEGRAM_CHAT_ID is not set');
+    return null;
+  }
   
-  // Handle both numeric and string formats
-  return chatId.startsWith('-') ? 
-    Number(chatId) : // Group chat IDs are negative numbers
-    Number(chatId.replace('@', '')); // Handle channel usernames
+  try {
+    // Handle both numeric and string formats
+    return chatId.startsWith('-') ? 
+      Number(chatId) : // Group chat IDs are negative numbers
+      Number(chatId.replace('@', '')); // Handle channel usernames
+  } catch (error) {
+    console.error('Invalid TELEGRAM_CHAT_ID format:', error);
+    return null;
+  }
 };
 
 const BAHT_TO_GRAM = 15.2; // 1 baht = 15.2 grams for 96.5% gold
@@ -65,6 +73,88 @@ interface GoldWithdrawalNotificationData {
   tel: string;
   address: string;
 }
+
+interface GoldStockNotificationData {
+  adminName: string;
+  goldType: string;
+  amount: number;
+  purchasePrice: number;
+}
+
+interface GoldStockCutNotificationData {
+  adminName: string;
+  goldType: string;
+  amount: number;
+  purchasePrice: number;
+  remainingAmount: number;
+}
+
+export const sendGoldStockNotification = async (data: GoldStockNotificationData) => {
+  if (!process.env.TELEGRAM_BOT_TOKEN) {
+    console.error('TELEGRAM_BOT_TOKEN is not configured');
+    return;
+  }
+
+  const chatId = getChatId();
+  if (!chatId) {
+    console.error('Invalid or missing TELEGRAM_CHAT_ID');
+    return;
+  }
+
+  const message = `📦 *New Gold Stock Added!*\n\n` +
+    `👤 Admin: ${data.adminName}\n` +
+    `🏆 Gold Type: ${data.goldType}\n` +
+    `💰 Amount: ${data.amount.toFixed(4)} บาท (${calculateGrams(data.amount)} กรัม)\n` +
+    `💵 Purchase Price: ฿${data.purchasePrice.toLocaleString()}/บาท\n` +
+    `💎 Total Value: ฿${(data.amount * data.purchasePrice).toLocaleString()}`;
+
+  try {
+    await bot.sendMessage(chatId, message, {
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true
+    }).catch(error => {
+      console.error('Telegram API Error:', error);
+    });
+
+    console.log('Telegram gold stock notification sent successfully');
+  } catch (error: any) {
+    console.error('Failed to send Telegram notification:', error);
+  }
+};
+
+export const sendGoldStockCutNotification = async (data: GoldStockCutNotificationData) => {
+  if (!process.env.TELEGRAM_BOT_TOKEN) {
+    console.error('TELEGRAM_BOT_TOKEN is not configured');
+    return;
+  }
+
+  const chatId = getChatId();
+  if (!chatId) {
+    console.error('Invalid or missing TELEGRAM_CHAT_ID');
+    return;
+  }
+
+  const message = `✂️ *Gold Stock Cut!*\n\n` +
+    `👤 Admin: ${data.adminName}\n` +
+    `🏆 Gold Type: ${data.goldType}\n` +
+    `💰 Cut Amount: ${data.amount.toFixed(4)} บาท (${calculateGrams(data.amount)} กรัม)\n` +
+    `💵 Purchase Price: ฿${data.purchasePrice.toLocaleString()}/บาท\n` +
+    `💎 Total Value: ฿${(data.amount * data.purchasePrice).toLocaleString()}\n` +
+    `📊 Remaining Amount: ${data.remainingAmount.toFixed(4)} บาท (${calculateGrams(data.remainingAmount)} กรัม)`;
+
+  try {
+    await bot.sendMessage(chatId, message, {
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true
+    }).catch(error => {
+      console.error('Telegram API Error:', error);
+    });
+
+    console.log('Telegram gold stock cut notification sent successfully');
+  } catch (error: any) {
+    console.error('Failed to send Telegram notification:', error);
+  }
+};
 
 export const sendDepositNotification = async (data: DepositNotificationData) => {
   try {
