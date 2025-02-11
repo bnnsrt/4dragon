@@ -186,8 +186,10 @@ export default function DepositPage() {
     {
       id: 'bank',
       name: 'Bank Transfer',
-      accountNumber: '192-2-95245-7',
-      accountName: 'นายบรรณศาสตร์ วงษ์วิจิตสุข'
+
+      
+      accountNumber: '203-3-64149-7',
+      accountName: 'บจก. ห้างทองมังกรทองบุรีรัมย์'
     }
   ];
 
