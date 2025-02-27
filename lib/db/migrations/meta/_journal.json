@@ -92,6 +92,13 @@
       "when": 1738914180443,
       "tag": "0012_free_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1740665651435,
+      "tag": "0013_spotty_nehzno",
+      "breakpoints": true
     }
   ]
 }
