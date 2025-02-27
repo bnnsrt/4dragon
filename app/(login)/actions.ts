@@ -18,6 +18,7 @@ import {
   bankAccounts,
   depositLimits,
   userBalances,
+  verificationCodes,
 } from '@/lib/db/schema';
 import { comparePasswords, hashPassword, setSession, deleteSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
@@ -30,6 +31,7 @@ import {
   ActionState,
 } from '@/lib/auth/middleware';
 import { authenticator } from 'otplib';
+import { sendVerificationCode } from '@/lib/email/verification';
 
 const ADMIN_EMAIL = 'ronnakritnook1@gmail.com';
 
@@ -125,10 +127,11 @@ const signUpSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   inviteId: z.string().optional(),
+  verificationCode: z.string().optional(),
 });
 
 export const signUp = validatedAction(signUpSchema, async (data, formData): Promise<ActionState> => {
-  const { email, password, name, phone, inviteId } = data;
+  const { email, password, name, phone, inviteId, verificationCode } = data;
 
   const existingUser = await db
     .select()
@@ -138,6 +141,41 @@ export const signUp = validatedAction(signUpSchema, async (data, formData): Prom
 
   if (existingUser.length > 0) {
     return { error: 'Failed to create user. Please try again.' };
+  }
+
+  // If verification code is not provided, generate and send one
+  if (!verificationCode) {
+    // Generate a random 4-digit code
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    // Save the code to the database with 10-minute expiration
+    await db.insert(verificationCodes).values({
+      email,
+      code,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+    });
+
+    // Send the verification code via email
+    await sendVerificationCode(email, code);
+
+    return { requiresVerification: true };
+  }
+
+  // Verify the code
+  const [validCode] = await db
+    .select()
+    .from(verificationCodes)
+    .where(
+      and(
+        eq(verificationCodes.email, email),
+        eq(verificationCodes.code, verificationCode),
+        sql`${verificationCodes.expiresAt} > NOW()`
+      )
+    )
+    .limit(1);
+
+  if (!validCode) {
+    return { error: 'Invalid or expired verification code' };
   }
 
   const passwordHash = await hashPassword(password);
@@ -262,6 +300,11 @@ export const signUp = validatedAction(signUpSchema, async (data, formData): Prom
     logActivity(teamId, createdUser.id, ActivityType.SIGN_UP),
     setSession(createdUser),
   ]);
+
+  // Delete the used verification code
+  await db
+    .delete(verificationCodes)
+    .where(eq(verificationCodes.email, email));
 
   const redirectTo = formData.get('redirect') as string | null;
   if (redirectTo === 'checkout') {

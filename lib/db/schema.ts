@@ -10,6 +10,15 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations, type InferSelectModel } from 'drizzle-orm';
 
+// Add verification codes table
+export const verificationCodes = pgTable('verification_codes', {
+  id: serial('id').primaryKey(),
+  email: varchar('email', { length: 255 }).notNull(),
+  code: varchar('code', { length: 4 }).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 // Define deposit limits table first since it will be referenced by users
 export const depositLimits = pgTable('deposit_limits', {
   id: serial('id').primaryKey(),
