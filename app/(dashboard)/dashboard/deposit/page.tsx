@@ -176,7 +176,7 @@ export default function DepositPage() {
   };
 
   const handleCopyAccountNumber = () => {
-    navigator.clipboard.writeText('021-3-75410-6');
+    navigator.clipboard.writeText('203-3-64149-7');
     setCopied(true);
     toast.success('คัดลอกเลขบัญชีแล้ว');
     setTimeout(() => setCopied(false), 2000);
