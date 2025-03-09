@@ -1,5 +1,5 @@
 {
-  "id": "28853c07-bee9-4785-9a5b-f6c81ad66c4d",
+  "id": "8a935c72-1af8-4f93-a0f4-af1218f2fff3",
   "prevId": "462ca2b7-9adc-46d5-8f14-c712234fb2d6",
   "version": "7",
   "dialect": "postgresql",
@@ -589,6 +589,197 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.payment_transactions": {
+      "name": "payment_transactions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status_name": {
+          "name": "status_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total": {
+          "name": "total",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "txn_id": {
+          "name": "txn_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'-'"
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'QR_DECIMAL'"
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        },
+        "trans_ref": {
+          "name": "trans_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'-'"
+        },
+        "payment_date": {
+          "name": "payment_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "merchant_id": {
+          "name": "merchant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "order_no": {
+          "name": "order_no",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ref_no": {
+          "name": "ref_no",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "product_detail": {
+          "name": "product_detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "card_type": {
+          "name": "card_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "customer_email": {
+          "name": "customer_email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency_code": {
+          "name": "currency_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "installment": {
+          "name": "installment",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_back_url": {
+          "name": "post_back_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_back_parameters": {
+          "name": "post_back_parameters",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_back_method": {
+          "name": "post_back_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_back_completed": {
+          "name": "post_back_completed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order_date_time": {
+          "name": "order_date_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payment_transactions_user_id_users_id_fk": {
+          "name": "payment_transactions_user_id_users_id_fk",
+          "tableFrom": "payment_transactions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "payment_transactions_order_no_unique": {
+          "name": "payment_transactions_order_no_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "order_no"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.product_categories": {
       "name": "product_categories",
       "schema": "",
@@ -1100,50 +1291,6 @@
           ]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.verification_codes": {
-      "name": "verification_codes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "code": {
-          "name": "code",
-          "type": "varchar(4)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

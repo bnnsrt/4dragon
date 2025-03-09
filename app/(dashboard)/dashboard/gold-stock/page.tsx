@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Pencil, Trash2, Scissors } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 import { useTheme } from '@/lib/theme-provider';
 
 interface GoldAsset {
-  id: number;
   goldType: string;
   amount: string;
   purchasePrice: string;
@@ -36,7 +35,6 @@ export default function GoldStockPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<GoldAsset | null>(null);
   const [formData, setFormData] = useState({
     goldType: 'ทองสมาคม 96.5%',
     grams: '',
@@ -94,129 +92,35 @@ export default function GoldStockPage() {
       // Convert grams to baht before sending to API
       const bathAmount = calculateBaht(Number(formData.grams));
 
-      if (selectedAsset) {
-        // Update existing stock
-        const response = await fetch(`/api/management/gold-stock/${selectedAsset.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            amount: bathAmount,
-            purchasePrice: formData.purchasePrice,
-          }),
-        });
+      const response = await fetch('/api/management/gold-stock/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          goldType: formData.goldType,
+          amount: bathAmount,
+          purchasePrice: formData.purchasePrice,
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to update gold stock');
-        }
-
-        toast.success('Gold stock updated successfully');
-      } else {
-        // Add new stock
-        const response = await fetch('/api/management/gold-stock/add', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            goldType: formData.goldType,
-            amount: bathAmount,
-            purchasePrice: formData.purchasePrice,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to add gold stock');
-        }
-
-        toast.success('Gold stock added successfully');
+      if (!response.ok) {
+        throw new Error('Failed to add gold stock');
       }
 
+      toast.success('Gold stock added successfully');
       setIsDialogOpen(false);
       setFormData({
         goldType: 'ทองสมาคม 96.5%',
         grams: '',
         purchasePrice: '',
       });
-      setSelectedAsset(null);
       fetchGoldAssets();
     } catch (error) {
-      console.error('Error managing gold stock:', error);
-      toast.error(selectedAsset ? 'Failed to update gold stock' : 'Failed to add gold stock');
+      console.error('Error adding gold stock:', error);
+      toast.error('Failed to add gold stock');
     } finally {
       setIsProcessing(false);
-    }
-  }
-
-  const handleEdit = async (asset: GoldAsset) => {
-    setSelectedAsset(asset);
-    setFormData({
-      goldType: asset.goldType,
-      grams: calculateGrams(Number(asset.amount)),
-      purchasePrice: asset.purchasePrice,
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleCut = async (asset: GoldAsset) => {
-    const currentAmount = Number(asset.amount);
-    const cutAmount = prompt(`Enter amount to cut (current: ${currentAmount.toFixed(4)} baht):`);
-    
-    if (!cutAmount) return;
-    
-    const cutAmountNum = Number(cutAmount);
-    if (isNaN(cutAmountNum) || cutAmountNum <= 0 || cutAmountNum >= currentAmount) {
-      toast.error('Please enter a valid amount less than the current amount');
-      return;
-    }
-
-    const newAmount = currentAmount - cutAmountNum;
-    setIsProcessing(true);
-
-    try {
-      const response = await fetch(`/api/management/gold-stock/${asset.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: newAmount,
-          purchasePrice: asset.purchasePrice,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to cut gold stock');
-      }
-
-      toast.success('Gold stock cut successfully');
-      fetchGoldAssets();
-    } catch (error) {
-      console.error('Error cutting gold stock:', error);
-      toast.error('Failed to cut gold stock');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  async function handleDelete(assetId: number) {
-    if (!confirm('Are you sure you want to delete this stock entry?')) return;
-
-    try {
-      const response = await fetch(`/api/management/gold-stock/${assetId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete gold stock');
-      }
-
-      toast.success('Gold stock deleted successfully');
-      fetchGoldAssets();
-    } catch (error) {
-      console.error('Error deleting gold stock:', error);
-      toast.error('Failed to delete gold stock');
     }
   }
 
@@ -234,15 +138,7 @@ export default function GoldStockPage() {
           จัดการ Stock ทอง
         </h1>
         <Button 
-          onClick={() => {
-            setSelectedAsset(null);
-            setFormData({
-              goldType: 'ทองสมาคม 96.5%',
-              grams: '',
-              purchasePrice: '',
-            });
-            setIsDialogOpen(true);
-          }}
+          onClick={() => setIsDialogOpen(true)}
           className="bg-orange-500 hover:bg-orange-600 text-white"
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -306,9 +202,9 @@ export default function GoldStockPage() {
               <div className="mt-6">
                 <h3 className={`text-lg font-medium mb-4 ${theme === 'dark' ? 'text-white' : ''}`}>Stock History</h3>
                 <div className="space-y-4">
-                  {goldAssets.map((asset) => (
+                  {goldAssets.map((asset, index) => (
                     <div
-                      key={asset.id}
+                      key={index}
                       className={`p-4 border rounded-lg ${
                         theme === 'dark' 
                           ? 'bg-[#1a1a1a] border-[#2A2A2A]' 
@@ -326,47 +222,13 @@ export default function GoldStockPage() {
                             <p>ราคาซื้อ: ฿{Number(asset.purchasePrice).toLocaleString()}/บาท</p>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
+                        <div className="text-right">
                           <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
                             มูลค่ารวม
                           </p>
                           <p className="text-orange-500 font-bold">
                             ฿{(Number(asset.amount) * Number(asset.purchasePrice)).toLocaleString()}
                           </p>
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEdit(asset)}
-                              className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#202020]' : ''}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCut(asset)}
-                              className={`${
-                                theme === 'dark' 
-                                  ? 'border-[#2A2A2A] hover:bg-[#202020] text-yellow-500' 
-                                  : 'text-yellow-600 hover:bg-yellow-50'
-                              }`}
-                            >
-                              <Scissors className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(asset.id)}
-                              className={`text-red-500 ${
-                                theme === 'dark' 
-                                  ? 'border-[#2A2A2A] hover:bg-[#202020]' 
-                                  : 'hover:bg-red-50'
-                              }`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -386,7 +248,7 @@ export default function GoldStockPage() {
         <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
           <DialogHeader>
             <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
-              {selectedAsset ? 'แก้ไข Stock ทอง' : 'เพิ่ม Stock ทอง'}
+              เพิ่ม Stock ทอง
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">

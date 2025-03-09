@@ -22,8 +22,6 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [showVerification, setShowVerification] = useState(false);
   
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     mode === 'signin' ? signIn : signUp,
@@ -33,9 +31,6 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   useEffect(() => {
     if (state?.requires2FA) {
       setShowTwoFactor(true);
-    }
-    if (state?.requiresVerification) {
-      setShowVerification(true);
     }
   }, [state]);
 
@@ -47,9 +42,6 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
     if (mode === 'signup') {
       formData.append('name', name);
       formData.append('phone', phone);
-      if (showVerification) {
-        formData.append('verificationCode', verificationCode);
-      }
     }
     if (showTwoFactor) {
       formData.append('twoFactorCode', twoFactorCode);
@@ -78,7 +70,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <form className="space-y-6" onSubmit={handleSubmit}>
-          {!showTwoFactor && !showVerification ? (
+          {!showTwoFactor ? (
             <>
               {mode === 'signup' && (
                 <>
@@ -174,7 +166,7 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 </div>
               </div>
             </>
-          ) : showTwoFactor ? (
+          ) : (
             <div>
               <Label
                 htmlFor="twoFactorCode"
@@ -195,27 +187,6 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 />
               </div>
             </div>
-          ) : (
-            <div>
-              <Label
-                htmlFor="verificationCode"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email Verification Code
-              </Label>
-              <div className="mt-1">
-                <Input
-                  id="verificationCode"
-                  type="text"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  required
-                  maxLength={4}
-                  className="appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
-                  placeholder="Enter 4-digit code"
-                />
-              </div>
-            </div>
           )}
 
           {state?.error && (
@@ -233,8 +204,6 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                   <Loader2 className="animate-spin mr-2 h-4 w-4" />
                   Loading...
                 </>
-              ) : showVerification ? (
-                'Verify Code'
               ) : showTwoFactor ? (
                 'Verify Code'
               ) : mode === 'signin' ? (

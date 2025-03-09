@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LogOut, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -44,7 +43,6 @@ export default function WithdrawPage() {
     address: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   useEffect(() => {
     async function fetchAssets() {
@@ -146,7 +144,6 @@ export default function WithdrawPage() {
       setSelectedAsset(null);
       setGramAmount('');
       setContactDetails({ name: '', tel: '', address: '' });
-      setShowSuccessDialog(true);
     } catch (error) {
       console.error('Error submitting withdrawal:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to submit withdrawal request');
@@ -158,7 +155,7 @@ export default function WithdrawPage() {
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className={`text-lg lg:text-2xl font-medium mb-6 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-        ขอรับทอง
+        Withdraw Gold
       </h1>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -172,7 +169,7 @@ export default function WithdrawPage() {
           <CardContent>
             <form onSubmit={handleWithdraw} className="space-y-6">
               <div className="space-y-2">
-                <Label className={theme === 'dark' ? 'text-white' : ''}>เลือกประเภททองคำ</Label>
+                <Label className={theme === 'dark' ? 'text-white' : ''}>Select Gold Type</Label>
                 <div className="grid gap-4">
                   {assets.map((asset) => (
                     <Button
@@ -208,7 +205,7 @@ export default function WithdrawPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="amount" className={theme === 'dark' ? 'text-white' : ''}>
-                  ระบุจำนวนทอง(กรัม)
+                  Withdrawal Amount (กรัม)
                 </Label>
                 <Input
                   id="amount"
@@ -233,7 +230,7 @@ export default function WithdrawPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name" className={theme === 'dark' ? 'text-white' : ''}>ชื่อ</Label>
+                <Label htmlFor="name" className={theme === 'dark' ? 'text-white' : ''}>Name</Label>
                 <Input
                   id="name"
                   type="text"
@@ -246,7 +243,7 @@ export default function WithdrawPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="tel" className={theme === 'dark' ? 'text-white' : ''}>เบอร์ติดต่อ</Label>
+                <Label htmlFor="tel" className={theme === 'dark' ? 'text-white' : ''}>Telephone</Label>
                 <Input
                   id="tel"
                   type="tel"
@@ -259,7 +256,7 @@ export default function WithdrawPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address" className={theme === 'dark' ? 'text-white' : ''}>ที่อยู​่</Label>
+                <Label htmlFor="address" className={theme === 'dark' ? 'text-white' : ''}>Address</Label>
                 <Input
                   id="address"
                   type="text"
@@ -274,6 +271,9 @@ export default function WithdrawPage() {
               <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-[#1a1a1a] text-orange-400' : 'bg-orange-50 text-orange-800'}`}>
                 <p>Important Notes:</p>
                 <ul className={`list-disc ml-4 mt-2 space-y-1 ${theme === 'dark' ? 'text-gray-400' : 'text-orange-800'}`}>
+                  
+               
+                  
                   <li>Processing time: 1-2 business days</li>
                   <li>หลังจากกดถอนกรุณา</li>
                 </ul>
@@ -303,32 +303,6 @@ export default function WithdrawPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Success Dialog */}
-      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
-          <DialogHeader>
-            <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
-              Withdrawal Request Submitted
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className={`text-center ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-              กรุณาติดต่อพนักงานเพื่อขอรับทอง
-            </p>
-            <div className="flex justify-center">
-              <a
-                href="http://m.me/4mangkorntong"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-              >
-                ติดต่อพนักงาน
-              </a>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

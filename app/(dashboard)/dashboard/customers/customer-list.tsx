@@ -2,13 +2,8 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 
 interface User {
   id: number;
@@ -32,14 +27,6 @@ interface CustomerListProps {
   depositLimits: DepositLimit[];
 }
 
-const BANK_NAMES: { [key: string]: string } = {
-  'ktb': 'ธนาคารกรุงไทย',
-  'kbank': 'ธนาคารกสิกรไทย',
-  'scb': 'ธนาคารไทยพาณิชย์',
-  'gsb': 'ธนาคารออมสิน',
-  'kkp': 'ธนาคารเกียรตินาคินภัทร'
-};
-
 function formatDate(date: Date) {
   const d = new Date(date);
   const day = d.getDate().toString().padStart(2, '0');
@@ -50,10 +37,6 @@ function formatDate(date: Date) {
 
 export function CustomerList({ users, depositLimits }: CustomerListProps) {
   const [userLimits, setUserLimits] = useState<{[key: number]: number}>({});
-  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [isResetting, setIsResetting] = useState(false);
 
   // Initialize userLimits with current values
   useEffect(() => {
@@ -92,48 +75,6 @@ export function CustomerList({ users, depositLimits }: CustomerListProps) {
     } catch (error) {
       console.error('Error updating deposit limit:', error);
       toast.error('Failed to update deposit limit');
-    }
-  };
-
-  const handleResetPassword = async () => {
-    if (!selectedUserId || !newPassword) {
-      toast.error('Please enter a new password');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters long');
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      const response = await fetch('/api/admin/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: selectedUserId,
-          newPassword,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to reset password');
-      }
-
-      toast.success('Password reset successfully');
-      setIsResetDialogOpen(false);
-      setNewPassword('');
-      setSelectedUserId(null);
-    } catch (error) {
-      console.error('Error resetting password:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to reset password');
-    } finally {
-      setIsResetting(false);
     }
   };
 
@@ -190,18 +131,6 @@ export function CustomerList({ users, depositLimits }: CustomerListProps) {
                     ))}
                   </SelectContent>
                 </Select>
-
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedUserId(user.id);
-                    setIsResetDialogOpen(true);
-                  }}
-                  className="dark:border-[#2A2A2A] dark:text-white dark:hover:bg-[#252525]"
-                >
-                  Reset Password
-                </Button>
-
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   Joined: {formatDate(user.createdAt)}
                 </span>
@@ -214,41 +143,6 @@ export function CustomerList({ users, depositLimits }: CustomerListProps) {
           <p className="text-gray-500 dark:text-gray-400">No users found</p>
         </div>
       )}
-
-      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-        <DialogContent className="dark:bg-[#151515] dark:border-[#2A2A2A]">
-          <DialogHeader>
-            <DialogTitle className="dark:text-white">Reset User Password</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="newPassword" className="dark:text-white">New Password</Label>
-              <Input
-                id="newPassword"
-                type="text"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="dark:bg-[#1a1a1a] dark:border-[#2A2A2A] dark:text-white"
-                placeholder="Enter new password"
-              />
-            </div>
-            <Button
-              onClick={handleResetPassword}
-              disabled={!newPassword || isResetting}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              {isResetting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Resetting...
-                </>
-              ) : (
-                'Reset Password'
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

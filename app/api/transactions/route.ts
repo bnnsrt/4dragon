@@ -5,7 +5,6 @@ import { eq, and, sql, ne } from 'drizzle-orm';
 import { getUser } from '@/lib/db/queries';
 import { sendGoldPurchaseNotification, sendGoldSaleNotification } from '@/lib/telegram/bot';
 import { pusherServer } from '@/lib/pusher';
-import { sendEmail, formatGoldTransactionEmail } from '@/lib/email/smtp';
 
 const GOLD_TYPE = 'ทองสมาคม 96.5%';
 const ADMIN_EMAIL = 'adminfortest@gmail.com';
@@ -181,9 +180,8 @@ export async function POST(request: Request) {
           .where(ne(users.role, 'admin'))
           .leftJoin(users, eq(userBalances.userId, users.id));
 
-        // Send notifications
+        // Send Telegram notification with correct remaining amount and total balance
         await Promise.allSettled([
-          // Send Telegram notification
           sendGoldSaleNotification({
             userName: user.name || user.email,
             goldType,
@@ -193,20 +191,6 @@ export async function POST(request: Request) {
             profitLoss,
             remainingAmount: availableStock,
             totalUserBalance: Number(totalUserBalance.total)
-          }),
-          // Send email notification
-          sendEmail({
-            to: user.email,
-            subject: 'Gold Sale Confirmation',
-            html: formatGoldTransactionEmail({
-              type: 'sell',
-              userName: user.name || user.email,
-              goldType,
-              amount: Number(amount),
-              pricePerUnit: Number(pricePerUnit),
-              totalPrice: Number(totalPrice),
-              profitLoss
-            })
           })
         ]);
 
@@ -295,9 +279,8 @@ export async function POST(request: Request) {
           .where(ne(users.role, 'admin'))
           .leftJoin(users, eq(userBalances.userId, users.id));
 
-        // Send notifications
+        // Send Telegram notification with correct remaining amount and total balance
         await Promise.allSettled([
-          // Send Telegram notification
           sendGoldPurchaseNotification({
             userName: user.name || user.email,
             goldType,
@@ -306,19 +289,6 @@ export async function POST(request: Request) {
             pricePerUnit: Number(pricePerUnit),
             remainingAmount: availableStock,
             totalUserBalance: Number(totalUserBalance.total)
-          }),
-          // Send email notification
-          sendEmail({
-            to: user.email,
-            subject: 'Gold Purchase Confirmation',
-            html: formatGoldTransactionEmail({
-              type: 'buy',
-              userName: user.name || user.email,
-              goldType,
-              amount: Number(amount),
-              pricePerUnit: Number(pricePerUnit),
-              totalPrice: Number(totalPrice)
-            })
           })
         ]);
 
