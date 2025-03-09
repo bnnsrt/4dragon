@@ -264,7 +264,7 @@ export const sendWithdrawalRequestNotification = async (data: WithdrawalRequestD
     });
 
     if (result) {
-      console.log('Telegram withdrawal notification sent successful');
+      console.log('Telegram withdrawal notification sent successfully');
     }
   } catch (error: any) {
     if (error.code === 'ETELEGRAM') {
