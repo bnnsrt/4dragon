@@ -267,7 +267,7 @@ export function GoldPrices() {
       setShowSummaryDialog(true);
       toast.success('ขายทองสำเร็จ');
     } catch (error) {
-      toast.error('เกิดข้อผิดพลาดในการขายทอง');
+      toast.error('เกิดข้อผิดพลาดในการขายทองไม่อยู่ในเวลาทำการ');
     } finally {
       setIsSellProcessing(false);
     }
