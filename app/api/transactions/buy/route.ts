@@ -4,6 +4,7 @@ import { userBalances, goldAssets, transactions, users } from '@/lib/db/schema';
 import { eq, sql, ne, and } from 'drizzle-orm';
 import { getUser } from '@/lib/db/queries';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
+import { isWithinTradingHours } from '@/lib/utils';
 
 const ADMIN_EMAIL = 'adminfortest@gmail.com';
 const GOLD_TYPE = 'ทองสมาคม 96.5%';
@@ -16,6 +17,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Check trading hours
+    const tradingHoursCheck = isWithinTradingHours();
+    if (!tradingHoursCheck.allowed) {
+      return NextResponse.json(
+        { error: tradingHoursCheck.message },
+        { status: 400 }
       );
     }
 
