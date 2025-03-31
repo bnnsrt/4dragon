@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, CreditCard, Database } from 'lucide-react';
-import { Terminal } from './terminal';
+
 import { GoldChart } from '@/components/GoldChart';
 import { SocialContacts } from '@/components/SocialContacts';
 import { GoldPricesHome } from '@/components/GoldPricesHome';
@@ -39,7 +39,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="mt-12 relative sm:max-w-lg sm:mx-auto lg:mt-0 lg:max-w-none lg:mx-0 lg:col-span-6 lg:flex lg:items-center">
-              <Terminal />
+        
             </div>
           </div>
         </div>
