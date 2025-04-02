@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Image from 'next/image';
 import { toast } from 'sonner';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
 import { pusherClient } from '@/lib/pusher';
 
@@ -47,11 +47,6 @@ interface TransactionSummary {
   previousTotalCost?: number;
 }
 
-interface TradingStatus {
-  isOpen: boolean;
-  message: string;
-}
-
 const GOLD_TYPE = "ทองสมาคม 96.5%"; // Gold type name
 const BAHT_TO_GRAM = 15.2; // 1 baht = 15.2 grams for 96.5% gold
 
@@ -71,7 +66,6 @@ export function GoldPrices() {
   const [transactionSummary, setTransactionSummary] = useState<TransactionSummary | null>(null);
   const [isBuyProcessing, setIsBuyProcessing] = useState(false);
   const [isSellProcessing, setIsSellProcessing] = useState(false);
-  const [tradingStatus, setTradingStatus] = useState<TradingStatus>({ isOpen: true, message: '' });
 
   useEffect(() => {
     fetchData();
@@ -93,19 +87,17 @@ export function GoldPrices() {
 
   async function fetchData() {
     try {
-      const [pricesResponse, balanceResponse, assetsResponse, tradingStatusResponse] = await Promise.all([
+      const [pricesResponse, balanceResponse, assetsResponse] = await Promise.all([
         fetch('/api/gold'),
         fetch('/api/user/balance'),
-        fetch('/api/gold-assets'),
-        fetch('/api/trading-status')
+        fetch('/api/gold-assets')
       ]);
 
-      if (pricesResponse.ok && balanceResponse.ok && assetsResponse.ok && tradingStatusResponse.ok) {
-        const [pricesData, balanceData, assetsData, tradingStatusData] = await Promise.all([
+      if (pricesResponse.ok && balanceResponse.ok && assetsResponse.ok) {
+        const [pricesData, balanceData, assetsData] = await Promise.all([
           pricesResponse.json(),
           balanceResponse.json(),
-          assetsResponse.json(),
-          tradingStatusResponse.json()
+          assetsResponse.json()
         ]);
 
         // Filter for only สมาคมฯ gold price
@@ -114,34 +106,23 @@ export function GoldPrices() {
         
         setBalance(Number(balanceData.balance));
         
-        const combinedAssets = assetsData.reduce((acc: { [key: string]: any }, asset: any) => {
+        const combinedAssets = assetsData.reduce((acc: { [key: string]: GoldAsset }, asset: any) => {
           const amount = Number(asset.amount);
-          if (amount <= 0.0001) return acc;
-
+          if (amount <= 0) return acc;
+          
           if (!acc[asset.goldType]) {
             acc[asset.goldType] = {
               goldType: asset.goldType,
-              amount: amount,
-              totalValue: amount * Number(asset.purchasePrice),
-              purchasePrice: Number(asset.purchasePrice)
+              amount: amount.toString(),
+              purchasePrice: asset.purchasePrice
             };
           } else {
-            acc[asset.goldType].amount += amount;
-            acc[asset.goldType].totalValue += amount * Number(asset.purchasePrice);
+            acc[asset.goldType].amount = (Number(acc[asset.goldType].amount) + amount).toString();
           }
           return acc;
         }, {});
         
-        const formattedAssets = Object.values(combinedAssets).map((asset: any) => ({
-          goldType: asset.goldType,
-          amount: asset.amount.toString(),
-          purchasePrice: (asset.totalValue / asset.amount).toString(),
-          totalCost: asset.totalValue.toString(),
-          averageCost: (asset.totalValue / asset.amount).toString()
-        }));
-
-        setAssets(formattedAssets);
-        setTradingStatus(tradingStatusData);
+        setAssets(Object.values(combinedAssets));
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -167,22 +148,12 @@ export function GoldPrices() {
   };
 
   const handleBuyClick = (price: GoldPrice) => {
-    if (!tradingStatus.isOpen) {
-      toast.error(tradingStatus.message || 'Trading is currently closed');
-      return;
-    }
-    
     setSelectedPrice(price);
     setMoneyAmount('');
     setIsBuyDialogOpen(true);
   };
 
   const handleSellClick = (price: GoldPrice) => {
-    if (!tradingStatus.isOpen) {
-      toast.error(tradingStatus.message || 'Trading is currently closed');
-      return;
-    }
-    
     setSelectedPrice(price);
     setSellUnits('');
     setIsSellDialogOpen(true);
@@ -219,8 +190,7 @@ export function GoldPrices() {
       });
   
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process purchase');
+        throw new Error('Failed to process purchase');
       }
   
       const data = await response.json();
@@ -240,7 +210,7 @@ export function GoldPrices() {
       setShowSummaryDialog(true);
       toast.success('ซื้อทองสำเร็จ');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการซื้อทอง');
+      toast.error('เกิดข้อผิดพลาดในการซื้อทองไม่อยู่ในเวลาทำการ');
     } finally {
       setIsBuyProcessing(false);
     }
@@ -274,8 +244,7 @@ export function GoldPrices() {
       });
   
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process sale');
+        throw new Error('Failed to process sale');
       }
   
       const data = await response.json();
@@ -298,7 +267,7 @@ export function GoldPrices() {
       setShowSummaryDialog(true);
       toast.success('ขายทองสำเร็จ');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการขายทอง');
+      toast.error('เกิดข้อผิดพลาดในการขายทองไม่อยู่ในเวลาทำการ');
     } finally {
       setIsSellProcessing(false);
     }
@@ -318,17 +287,6 @@ export function GoldPrices() {
           </div>
         </CardContent>
       </Card>
-
-      {!tradingStatus.isOpen && (
-        <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-red-900/20 border border-red-900' : 'bg-red-50 border border-red-200'}`}>
-          <div className="flex items-center">
-            <AlertCircle className={`h-5 w-5 mr-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-500'}`} />
-            <p className={theme === 'dark' ? 'text-red-400' : 'text-red-700'}>
-              {tradingStatus.message || 'การซื้อขายถูกปิดชั่วคราว กรุณาลองใหม่ภายหลัง'}
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className={`text-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} text-sm -mt-2 mb-2`}>
         อัพเดทล่าสุด: {lastUpdate.toLocaleString('th-TH')}
@@ -353,7 +311,7 @@ export function GoldPrices() {
                   </div>
                   <div>
                     <h3 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{GOLD_TYPE}</h3>
-                    <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                       1 บาท = {BAHT_TO_GRAM} กรัม
                     </p>
                     {summary.units > 0.0001 && (
@@ -373,7 +331,6 @@ export function GoldPrices() {
                     onClick={() => handleBuyClick(price)}
                     className="bg-[#4CAF50] hover:bg-[#45a049] text-white h-8 w-16"
                     size="sm"
-                    disabled={!tradingStatus.isOpen}
                   >
                     ซื้อ
                   </Button>
@@ -381,7 +338,6 @@ export function GoldPrices() {
                     onClick={() => handleSellClick(price)}
                     className="bg-[#ef5350] hover:bg-[#e53935] text-white h-8 w-16"
                     size="sm"
-                    disabled={!tradingStatus.isOpen}
                   >
                     ขาย
                   </Button>

@@ -4,7 +4,7 @@ import { userBalances, goldAssets, transactions, users } from '@/lib/db/schema';
 import { eq, sql, ne, and } from 'drizzle-orm';
 import { getUser } from '@/lib/db/queries';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
-import { isWithinTradingHours, getTradingStatus } from '@/lib/utils';
+import { isWithinTradingHours } from '@/lib/utils';
 
 const ADMIN_EMAIL = 'adminfortest@gmail.com';
 const GOLD_TYPE = 'ทองสมาคม 96.5%';
@@ -17,15 +17,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
-      );
-    }
-
-    // Check trading status
-    const tradingStatusData = await getTradingStatus();
-    if (!tradingStatusData.isOpen) {
-      return NextResponse.json(
-        { error: tradingStatusData.message || 'Trading is currently closed' },
-        { status: 400 }
       );
     }
 

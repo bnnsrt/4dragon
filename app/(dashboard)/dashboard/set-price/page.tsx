@@ -3,13 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Tag, Save, ShieldAlert, Clock } from 'lucide-react';
+import { Tag, Save, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { toast } from 'sonner';
 import { useTheme } from '@/lib/theme-provider';
-import { Switch } from '@/components/ui/switch';
 
 interface MarkupSettings {
   gold_spot_bid: number;
@@ -20,12 +19,6 @@ interface MarkupSettings {
   gold_965_ask: number;
   gold_association_bid: number;
   gold_association_ask: number;
-}
-
-interface TradingStatus {
-  isOpen: boolean;
-  message: string;
-  updatedAt?: Date;
 }
 
 export default function SetPricePage() {
@@ -41,36 +34,22 @@ export default function SetPricePage() {
     gold_association_bid: 0,
     gold_association_ask: 0,
   });
-  const [tradingStatus, setTradingStatus] = useState<TradingStatus>({
-    isOpen: true,
-    message: '',
-  });
   const [isSaving, setIsSaving] = useState(false);
-  const [isSavingStatus, setIsSavingStatus] = useState(false);
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchMarkupSettings() {
       try {
-        const [markupResponse, tradingStatusResponse] = await Promise.all([
-          fetch('/api/markup'),
-          fetch('/api/trading-status')
-        ]);
-        
-        if (markupResponse.ok) {
-          const markupData = await markupResponse.json();
-          setMarkupSettings(markupData);
-        }
-        
-        if (tradingStatusResponse.ok) {
-          const statusData = await tradingStatusResponse.json();
-          setTradingStatus(statusData);
+        const response = await fetch('/api/markup');
+        if (response.ok) {
+          const data = await response.json();
+          setMarkupSettings(data);
         }
       } catch (error) {
-        console.error('Error fetching settings:', error);
+        console.error('Error fetching markup settings:', error);
       }
     }
 
-    fetchData();
+    fetchMarkupSettings();
   }, []);
 
   if (!user) {
@@ -128,35 +107,6 @@ export default function SetPricePage() {
     }
   };
 
-  const handleTradingStatusSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSavingStatus(true);
-    
-    try {
-      const response = await fetch('/api/trading-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          isOpen: tradingStatus.isOpen,
-          message: tradingStatus.message,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update trading status');
-      }
-
-      toast.success('อัพเดทสถานะการซื้อขายสำเร็จ');
-    } catch (error) {
-      console.error('Error updating trading status:', error);
-      toast.error('เกิดข้อผิดพลาดในการอัพเดทสถานะการซื้อขาย');
-    } finally {
-      setIsSavingStatus(false);
-    }
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setMarkupSettings(prev => ({
@@ -165,93 +115,11 @@ export default function SetPricePage() {
     }));
   };
 
-  const handleTradingStatusChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setTradingStatus(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleTradingToggle = (checked: boolean) => {
-    setTradingStatus(prev => ({
-      ...prev,
-      isOpen: checked,
-    }));
-  };
-
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className={`text-lg lg:text-2xl font-medium mb-6 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-        ตั้งค่าระบบ
+        Set Price
       </h1>
-
-      {/* Trading Status Card */}
-      <Card className={`mb-8 ${theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}`}>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Clock className="h-6 w-6 text-orange-500" />
-            <span className={theme === 'dark' ? 'text-white' : ''}>สถานะการซื้อขาย</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleTradingStatusSubmit} className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className={theme === 'dark' ? 'text-white' : ''}>
-                  สถานะการซื้อขาย
-                </Label>
-                <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                  เปิด/ปิดการซื้อขายทองสำหรับผู้ใช้ทั้งหมด
-                </p>
-              </div>
-              <Switch 
-                checked={tradingStatus.isOpen} 
-                onCheckedChange={handleTradingToggle}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="message" className={theme === 'dark' ? 'text-white' : ''}>
-                ข้อความแจ้งเตือน (แสดงเมื่อปิดการซื้อขาย)
-              </Label>
-              <textarea
-                id="message"
-                name="message"
-                value={tradingStatus.message}
-                onChange={handleTradingStatusChange}
-                placeholder="ระบุข้อความที่จะแสดงเมื่อปิดการซื้อขาย"
-                rows={3}
-                className={`w-full p-2 rounded-md border ${
-                  theme === 'dark' 
-                    ? 'bg-[#1a1a1a] border-[#333] text-white' 
-                    : 'border-gray-300'
-                }`}
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-              disabled={isSavingStatus}
-            >
-              {isSavingStatus ? (
-                <>
-                  <Save className="w-4 h-4 mr-2 animate-spin" />
-                  กำลังบันทึก...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  บันทึกสถานะการซื้อขาย
-                </>
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Price Settings Card */}
       <Card className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
