@@ -102,6 +102,15 @@ export const markupSettings = pgTable("markup_settings", {
   updatedBy: integer("updated_by").references(() => users.id),
 });
 
+// New table for trading status
+export const tradingStatus = pgTable("trading_status", {
+  id: serial("id").primaryKey(),
+  isOpen: boolean("is_open").notNull().default(true),
+  message: text("message").default(""),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
 export const socialSettings = pgTable("social_settings", {
   id: serial("id").primaryKey(),
   facebookLink: text("facebook_link").default(""),
@@ -296,6 +305,13 @@ export const markupSettingsRelations = relations(markupSettings, ({ one }) => ({
   }),
 }));
 
+export const tradingStatusRelations = relations(tradingStatus, ({ one }) => ({
+  updatedByUser: one(users, {
+    fields: [tradingStatus.updatedBy],
+    references: [users.id],
+  }),
+}));
+
 export const socialSettingsRelations = relations(socialSettings, ({ one }) => ({
   updatedByUser: one(users, {
     fields: [socialSettings.updatedBy],
@@ -411,6 +427,8 @@ export type Invitation = InferSelectModel<typeof invitations>;
 export type NewInvitation = typeof invitations.$inferInsert;
 export type MarkupSetting = InferSelectModel<typeof markupSettings>;
 export type NewMarkupSetting = typeof markupSettings.$inferInsert;
+export type TradingStatus = InferSelectModel<typeof tradingStatus>;
+export type NewTradingStatus = typeof tradingStatus.$inferInsert;
 export type SocialSetting = InferSelectModel<typeof socialSettings>;
 export type NewSocialSetting = typeof socialSettings.$inferInsert;
 export type VerifiedSlip = InferSelectModel<typeof verifiedSlips>;

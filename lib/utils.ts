@@ -1,8 +1,35 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { db } from './db/drizzle';
+import { tradingStatus } from './db/schema';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+export async function getTradingStatus() {
+  try {
+    const status = await db
+      .select()
+      .from(tradingStatus)
+      .orderBy(tradingStatus.id)
+      .limit(1);
+
+    if (status.length === 0) {
+      // Default to open if no status is found
+      return { isOpen: true, message: '' };
+    }
+
+    return {
+      isOpen: status[0].isOpen,
+      message: status[0].message || '',
+      updatedAt: status[0].updatedAt
+    };
+  } catch (error) {
+    console.error('Error fetching trading status:', error);
+    // Default to open if there's an error
+    return { isOpen: true, message: '' };
+  }
 }
 
 export function isWithinTradingHours(): { allowed: boolean; message?: string } {
