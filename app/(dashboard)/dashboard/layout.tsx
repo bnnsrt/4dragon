@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Users, Settings, Shield, Activity, Menu, UserCircle, Coins, Wallet, BarChart2, FileText, Globe, LogOut, ClipboardList, History, Key, CreditCard, BanknoteIcon, Moon, Sun, Package, PiggyBank, ShoppingBag } from 'lucide-react';
+import { Users, Settings, Shield, Activity, Menu, UserCircle, Coins, Wallet, BarChart2, FileText, Globe, LogOut, ClipboardList, History, Key, CreditCard, BanknoteIcon, Moon, Sun, Package, PiggyBank, ShoppingBag, ToggleLeft } from 'lucide-react';
 import { useUser } from '@/lib/auth';
 import { SocialContacts } from '@/components/SocialContacts';
 import { useTheme } from '@/lib/theme-provider';
@@ -54,6 +54,7 @@ export default function DashboardLayout({
 
     const adminItems = [
       { href: '/dashboard/set-price', icon: Settings, label: 'กำหนดราคา' },
+      { href: '/dashboard/trading-status', icon: ToggleLeft, label: 'เปิดปิดสถานะ' },
       { href: '/dashboard/customers', icon: UserCircle, label: 'ลูกค้าทั้งหมด' },
       { href: '/dashboard/deposit-limits', icon: BanknoteIcon, label: 'ตั้งค่าเพดานเงินฝาก' },
       { href: '/dashboard/transactions-history', icon: FileText, label: 'รายการซื้อขายทอง' },
