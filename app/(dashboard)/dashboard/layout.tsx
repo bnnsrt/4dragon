@@ -42,10 +42,9 @@ export default function DashboardLayout({
       { href: '/dashboard/asset', icon: BarChart2, label: 'สินทรัพย์ทั้งหมด' },
       { href: '/dashboard/transaction', icon: FileText, label: 'รายการซื้อขายทอง' },
 
-      { href: '/dashboard/withdraw-money', icon: CreditCard, label: 'ถอนเงิน' },
-      { href: '/dashboard/withdraw', icon: LogOut, label: 'ขอรับทอง' },
-      { href: '/dashboard/withdraw/history', icon: History, label: 'ประวัติการขอรับทอง' },
-      { href: '/dashboard/withdraw-money/history', icon: History, label: 'ประวัติการขอถอนเงิน' },
+ 
+  
+
       { href: '/dashboard/general', icon: Settings, label: 'ตั้งค่า' },
       { href: '/dashboard/security', icon: Shield, label: 'เปลี่ยนรหัสผ่าน' },
       { href: '/dashboard/2fa', icon: Key, label: 'ตั้งค่า 2FA' },

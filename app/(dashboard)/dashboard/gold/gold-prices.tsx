@@ -66,6 +66,11 @@ export function GoldPrices() {
   const [transactionSummary, setTransactionSummary] = useState<TransactionSummary | null>(null);
   const [isBuyProcessing, setIsBuyProcessing] = useState(false);
   const [isSellProcessing, setIsSellProcessing] = useState(false);
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [isSlipVerifying, setIsSlipVerifying] = useState(false);
+  const [showSlipUploadDialog, setShowSlipUploadDialog] = useState(false);
+  const [buyAmount, setBuyAmount] = useState('');
+  const [buyPrice, setBuyPrice] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -106,23 +111,33 @@ export function GoldPrices() {
         
         setBalance(Number(balanceData.balance));
         
-        const combinedAssets = assetsData.reduce((acc: { [key: string]: GoldAsset }, asset: any) => {
+        const combinedAssets = assetsData.reduce((acc: { [key: string]: any }, asset: any) => {
           const amount = Number(asset.amount);
-          if (amount <= 0) return acc;
+          if (amount <= 0.0001) return acc;
           
           if (!acc[asset.goldType]) {
             acc[asset.goldType] = {
               goldType: asset.goldType,
-              amount: amount.toString(),
-              purchasePrice: asset.purchasePrice
+              amount: amount,
+              totalValue: amount * Number(asset.purchasePrice),
+              purchasePrice: Number(asset.purchasePrice)
             };
           } else {
-            acc[asset.goldType].amount = (Number(acc[asset.goldType].amount) + amount).toString();
+            acc[asset.goldType].amount += amount;
+            acc[asset.goldType].totalValue += amount * Number(asset.purchasePrice);
           }
           return acc;
         }, {});
         
-        setAssets(Object.values(combinedAssets));
+        const formattedAssets = Object.values(combinedAssets).map((asset: any) => ({
+          goldType: asset.goldType,
+          amount: asset.amount.toString(),
+          purchasePrice: (asset.totalValue / asset.amount).toString(),
+          totalCost: asset.totalValue.toString(),
+          averageCost: (asset.totalValue / asset.amount).toString()
+        }));
+
+        setAssets(formattedAssets);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -153,19 +168,13 @@ export function GoldPrices() {
     setIsBuyDialogOpen(true);
   };
 
-  const handleSellClick = (price: GoldPrice) => {
-    setSelectedPrice(price);
-    setSellUnits('');
-    setIsSellDialogOpen(true);
-  };
-
   const handleBuySubmit = async () => {
     if (!selectedPrice || !moneyAmount) return;
   
     const moneyNum = parseFloat(moneyAmount);
     
-    if (moneyNum > balance) {
-      toast.error('จำนวนเงินเกินยอดคงเหลือในบัญชี');
+    if (moneyNum <= 0) {
+      toast.error('กรุณาระบุจำนวนเงินที่ถูกต้อง');
       return;
     }
   
@@ -176,44 +185,104 @@ export function GoldPrices() {
         parseFloat(selectedPrice.ask) : selectedPrice.ask;
       
       const units = moneyNum / baseAskPrice;
-  
+      
+      // Store the buy information for the slip upload dialog
+      setBuyAmount(units.toString());
+      setBuyPrice(baseAskPrice);
+      
+      // Close the buy dialog and open the slip upload dialog
+      setIsBuyDialogOpen(false);
+      setShowSlipUploadDialog(true);
+    } catch (error) {
+      toast.error('เกิดข้อผิดพลาดในการซื้อทอง');
+    } finally {
+      setIsBuyProcessing(false);
+    }
+  };
+
+  const handleSlipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setSlipFile(files[0]);
+    }
+  };
+
+  const handleVerifySlip = async () => {
+    if (!slipFile || !buyAmount || !buyPrice) {
+      toast.error('กรุณาแนบสลิปการโอนเงิน');
+      return;
+    }
+
+    setIsSlipVerifying(true);
+
+    try {
+      // Create form data with the slip
+      const formData = new FormData();
+      formData.append('slip', slipFile);
+
+      // Verify the slip first
+      const verifyResponse = await fetch('/api/verify-slip', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json();
+        throw new Error(errorData.message || 'Failed to verify slip');
+      }
+
+      // If slip is verified, proceed with the purchase
+      const totalPrice = parseFloat(moneyAmount);
+      
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           goldType: GOLD_TYPE,
-          amount: units,
-          pricePerUnit: baseAskPrice,
-          totalPrice: moneyNum,
+          amount: buyAmount,
+          pricePerUnit: buyPrice,
+          totalPrice: totalPrice,
           type: 'buy'
         })
       });
-  
+
       if (!response.ok) {
         throw new Error('Failed to process purchase');
       }
-  
+
       const data = await response.json();
       setBalance(data.balance);
       await fetchData();
       
       setTransactionSummary({
         goldType: GOLD_TYPE,
-        units,
-        price: baseAskPrice,
-        total: moneyNum,
+        units: parseFloat(buyAmount),
+        price: buyPrice,
+        total: totalPrice,
         averageCost: data.averageCost || 0,
         totalCost: data.totalCost || 0
       });
       
-      setIsBuyDialogOpen(false);
+      setShowSlipUploadDialog(false);
       setShowSummaryDialog(true);
       toast.success('ซื้อทองสำเร็จ');
+      
+      // Reset the slip file and buy information
+      setSlipFile(null);
+      setBuyAmount('');
+      setBuyPrice(0);
     } catch (error) {
-      toast.error('เกิดข้อผิดพลาดในการซื้อทองไม่อยู่ในเวลาทำการ');
+      console.error('Error:', error);
+      toast.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการตรวจสอบสลิป');
     } finally {
-      setIsBuyProcessing(false);
+      setIsSlipVerifying(false);
     }
+  };
+
+  const handleSellClick = (price: GoldPrice) => {
+    setSelectedPrice(price);
+    setSellUnits('');
+    setIsSellDialogOpen(true);
   };
 
   const handleSellSubmit = async () => {
@@ -275,18 +344,7 @@ export function GoldPrices() {
 
   return (
     <div className="space-y-4">
-      <Card className={`${theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : 'bg-white'}`}>
-        <CardContent className="p-6">
-          <div className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm opacity-80">เงินสดในพอร์ต</p>
-                <p className="text-3xl font-bold">฿{balance.toLocaleString()}</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
 
       <div className={`text-center ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} text-sm -mt-2 mb-2`}>
         อัพเดทล่าสุด: {lastUpdate.toLocaleString('th-TH')}
@@ -311,7 +369,7 @@ export function GoldPrices() {
                   </div>
                   <div>
                     <h3 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{GOLD_TYPE}</h3>
-                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                       1 บาท = {BAHT_TO_GRAM} กรัม
                     </p>
                     {summary.units > 0.0001 && (
@@ -374,9 +432,7 @@ export function GoldPrices() {
                 value={moneyAmount}
                 onChange={(e) => {
                   const value = e.target.value;
-                  if (value === '' || Number(value) <= balance) {
-                    setMoneyAmount(value);
-                  }
+                  setMoneyAmount(value);
                 }}
                 placeholder="ระบุจำนวนเงินที่ต้องการซื้อ"
                 className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#333] text-white' : ''}
@@ -398,7 +454,7 @@ export function GoldPrices() {
             <Button
               onClick={handleBuySubmit}
               className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white"
-              disabled={!moneyAmount || Number(moneyAmount) <= 0 || Number(moneyAmount) > balance || isBuyProcessing}
+              disabled={!moneyAmount || Number(moneyAmount) <= 0 || isBuyProcessing}
             >
               {isBuyProcessing ? (
                 <>
@@ -406,7 +462,62 @@ export function GoldPrices() {
                   กำลังทำรายการ...
                 </>
               ) : (
-                'ยืนยันคำสั่งซื้อ'
+                'ดำเนินการต่อ'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSlipUploadDialog} onOpenChange={setShowSlipUploadDialog}>
+        <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A] text-white' : ''}>
+          <DialogHeader>
+            <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>แนบสลิปการโอนเงิน</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className={theme === 'dark' ? 'text-white' : ''}>จำนวนเงินที่ต้องโอน</Label>
+              <p className="text-xl font-bold text-[#4CAF50]">฿{moneyAmount}</p>
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                กรุณาโอนเงินตามจำนวนที่ระบุและแนบสลิปการโอนเงิน
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className={theme === 'dark' ? 'text-white' : ''}>บัญชีธนาคาร</Label>
+              <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-gray-50'}`}>
+                <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>ธนาคารกสิกรไทย</p>
+                <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>ชื่อบัญชี: นายบรรณศาสตร์ วงษ์วิจิตสุข</p>
+                <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>เลขที่บัญชี: 192-2-95245-7</p>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="slip" className={theme === 'dark' ? 'text-white' : ''}>แนบสลิปการโอนเงิน</Label>
+              <Input
+                id="slip"
+                type="file"
+                accept="image/*"
+                onChange={handleSlipUpload}
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#333] text-white' : ''}
+              />
+              <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                รองรับไฟล์ภาพ (JPG, PNG) ขนาดไม่เกิน 10MB
+              </p>
+            </div>
+            
+            <Button
+              onClick={handleVerifySlip}
+              className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white"
+              disabled={!slipFile || isSlipVerifying}
+            >
+              {isSlipVerifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังตรวจสอบสลิป...
+                </>
+              ) : (
+                'ตรวจสอบและยืนยัน'
               )}
             </Button>
           </div>

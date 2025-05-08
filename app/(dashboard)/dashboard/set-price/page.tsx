@@ -227,12 +227,12 @@ export default function SetPricePage() {
                     step="any"
                     value={markupSettings.gold_association_bid}
                     onChange={handleInputChange}
-                    placeholder="Enter fixed bid value in baht"
+                    placeholder="Enter bid markup value"
                     className={`mt-1 ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#333] text-white' : ''}`}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gold_association_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold Association ราคาที่ลูกค้าซื้อจากร้าน (บาท)</Label>
+                  <Label htmlFor="gold_association_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold Association ราคาที่ลูกค้าซื้อจากร้าน (%)</Label>
                   <Input
                     id="gold_association_ask"
                     name="gold_association_ask"
@@ -240,7 +240,7 @@ export default function SetPricePage() {
                     step="any"
                     value={markupSettings.gold_association_ask}
                     onChange={handleInputChange}
-                    placeholder="Enter fixed ask value in baht"
+                    placeholder="Enter ask markup percentage"
                     className={`mt-1 ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#333] text-white' : ''}`}
                   />
                 </div>

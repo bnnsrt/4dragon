@@ -108,45 +108,9 @@ export default function AssetPage() {
       </h1>
       
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className={`md:col-span-3 ${theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}`}>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <PieChart className="h-6 w-6 text-orange-500" />
-              <span className={`text-sm ${theme === 'dark' ? 'text-white' : ''}`}>Account Value</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="text-center md:text-left">
-                <p className="text-xl font-bold text-orange-500">
-                  {totalAccountValue.toLocaleString()} ฿
-                </p>
-                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                  มูลค่ารวมในพอร์ต
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    
 
-        <Card className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Wallet className="h-6 w-6 text-orange-500" />
-              <span className={`text-sm ${theme === 'dark' ? 'text-white' : ''}`}>เงินสดในพอร์ต</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mt-2">
-              <p className="text-xl font-bold text-orange-500">
-                {Number(assetData.balance).toLocaleString()} ฿
-              </p>
-              <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                Total Available Balance
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+     
 
         <Card className={`md:col-span-2 ${theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}`}>
           <CardHeader>
