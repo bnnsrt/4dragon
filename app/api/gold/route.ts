@@ -59,8 +59,9 @@ async function processGoldPrices(data: any[], settings: any) {
           case 'สมาคมฯ':
             return {
               ...item,
-              bid: Number(item.bid) * (1 + Number(settings.goldAssociationBid) / 100),
-              ask: Number(item.ask) * (1 + Number(settings.goldAssociationAsk) / 100)
+              // For Gold Association, apply fixed value adjustment instead of percentage
+              bid: Number(item.bid) + Number(settings.goldAssociationBid),
+              ask: Number(item.ask) + Number(settings.goldAssociationAsk)
             };
           default:
             return item;
