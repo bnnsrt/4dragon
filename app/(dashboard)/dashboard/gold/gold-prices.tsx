@@ -334,13 +334,6 @@ export function GoldPrices() {
                   >
                     ซื้อ
                   </Button>
-                  <Button
-                    onClick={() => handleSellClick(price)}
-                    className="bg-[#ef5350] hover:bg-[#e53935] text-white h-8 w-16"
-                    size="sm"
-                  >
-                    ขาย
-                  </Button>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-3 gap-4">

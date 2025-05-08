@@ -41,7 +41,7 @@ export default function DashboardLayout({
       
       { href: '/dashboard/asset', icon: BarChart2, label: 'สินทรัพย์ทั้งหมด' },
       { href: '/dashboard/transaction', icon: FileText, label: 'รายการซื้อขายทอง' },
-      { href: '/dashboard/deposit', icon: Wallet, label: 'ฝากเงิน' },
+
       { href: '/dashboard/withdraw-money', icon: CreditCard, label: 'ถอนเงิน' },
       { href: '/dashboard/withdraw', icon: LogOut, label: 'ขอรับทอง' },
       { href: '/dashboard/withdraw/history', icon: History, label: 'ประวัติการขอรับทอง' },
