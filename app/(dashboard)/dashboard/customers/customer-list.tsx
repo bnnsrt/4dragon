@@ -4,6 +4,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, KeyRound } from 'lucide-react';
 
 interface User {
   id: number;
@@ -37,6 +42,11 @@ function formatDate(date: Date) {
 
 export function CustomerList({ users, depositLimits }: CustomerListProps) {
   const [userLimits, setUserLimits] = useState<{[key: number]: number}>({});
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   // Initialize userLimits with current values
   useEffect(() => {
@@ -75,6 +85,44 @@ export function CustomerList({ users, depositLimits }: CustomerListProps) {
     } catch (error) {
       console.error('Error updating deposit limit:', error);
       toast.error('Failed to update deposit limit');
+    }
+  };
+
+  const handleResetPassword = (userId: number, userEmail: string) => {
+    setSelectedUserId(userId);
+    setSelectedUserEmail(userEmail);
+    setNewPassword('');
+    setIsResetPasswordOpen(true);
+  };
+
+  const handleResetPasswordSubmit = async () => {
+    if (!selectedUserId || !newPassword) return;
+
+    setIsResetting(true);
+    try {
+      const response = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          newPassword
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to reset password');
+      }
+
+      toast.success('Password reset successfully');
+      setIsResetPasswordOpen(false);
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to reset password');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -131,6 +179,15 @@ export function CustomerList({ users, depositLimits }: CustomerListProps) {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleResetPassword(user.id, user.email)}
+                  className="flex items-center gap-1"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Reset Password
+                </Button>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   Joined: {formatDate(user.createdAt)}
                 </span>
@@ -143,6 +200,47 @@ export function CustomerList({ users, depositLimits }: CustomerListProps) {
           <p className="text-gray-500 dark:text-gray-400">No users found</p>
         </div>
       )}
+
+      <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
+        <DialogContent className="dark:bg-[#151515] dark:border-[#2A2A2A]">
+          <DialogHeader>
+            <DialogTitle className="dark:text-white">Reset Password</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="dark:text-white">User</Label>
+              <p className="text-sm dark:text-gray-400">{selectedUserEmail}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword" className="dark:text-white">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="dark:bg-[#1a1a1a] dark:border-[#2A2A2A] dark:text-white"
+                required
+                minLength={8}
+              />
+            </div>
+            <Button
+              onClick={handleResetPasswordSubmit}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={!newPassword || isResetting}
+            >
+              {isResetting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                'Reset Password'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
