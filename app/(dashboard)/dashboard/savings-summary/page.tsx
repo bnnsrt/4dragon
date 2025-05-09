@@ -130,6 +130,11 @@ const SavingsSummaryPage = () => {
       channel.bind('transaction', () => {
         fetchData();
       });
+      
+      // Listen for exchange transactions
+      channel.bind('exchange', () => {
+        fetchData();
+      });
 
       return () => {
         channel.unbind_all();

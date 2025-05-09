@@ -5,6 +5,7 @@ import { BarChart2, Wallet, PieChart } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { AssetSkeleton } from '@/components/AssetSkeleton';
 import { useTheme } from '@/lib/theme-provider';
+import { pusherClient } from '@/lib/pusher';
 
 interface GoldAsset {
   goldType: string;
@@ -40,31 +41,60 @@ export default function AssetPage() {
   };
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [assetResponse, pricesResponse] = await Promise.all([
-          fetch('/api/asset-data'),
-          fetch('/api/gold')
+    fetchData();
+
+    // Subscribe to Pusher channels for real-time updates
+    const pricesChannel = pusherClient.subscribe('gold-prices');
+    const transactionsChannel = pusherClient.subscribe('gold-transactions');
+    
+    // Listen for price updates
+    pricesChannel.bind('price-update', (data: { prices: GoldPrice[] }) => {
+      const goldAssociationPrice = data.prices.find(price => price.name === 'สมาคมฯ');
+      if (goldAssociationPrice) {
+        setPrices([goldAssociationPrice]);
+      }
+    });
+    
+    // Listen for transaction updates (buy, sell, exchange)
+    transactionsChannel.bind('transaction', () => {
+      fetchData();
+    });
+    
+    // Listen for exchange updates
+    transactionsChannel.bind('exchange', () => {
+      fetchData();
+    });
+
+    return () => {
+      pricesChannel.unbind_all();
+      transactionsChannel.unbind_all();
+      pusherClient.unsubscribe('gold-prices');
+      pusherClient.unsubscribe('gold-transactions');
+    };
+  }, []);
+
+  async function fetchData() {
+    try {
+      const [assetResponse, pricesResponse] = await Promise.all([
+        fetch('/api/asset-data'),
+        fetch('/api/gold')
+      ]);
+
+      if (assetResponse.ok && pricesResponse.ok) {
+        const [assetData, pricesData] = await Promise.all([
+          assetResponse.json(),
+          pricesResponse.json()
         ]);
 
-        if (assetResponse.ok && pricesResponse.ok) {
-          const [assetData, pricesData] = await Promise.all([
-            assetResponse.json(),
-            pricesResponse.json()
-          ]);
-
-          setAssetData(assetData);
-          setPrices(pricesData);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
+        setAssetData(assetData);
+        setPrices(pricesData);
       }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    fetchData();
-  }, []);
+  }
 
   const getBuybackPrice = useMemo(() => {
     const priceMap: Record<string, string> = {

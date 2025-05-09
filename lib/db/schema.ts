@@ -187,7 +187,7 @@ export const transactions = pgTable("transactions", {
   amount: decimal("amount").notNull(),
   pricePerUnit: decimal("price_per_unit").notNull(),
   totalPrice: decimal("total_price").notNull(),
-  type: varchar("type", { length: 10 }).notNull(),
+  type: varchar("type", { length: 10 }).notNull(), // 'buy', 'sell', or 'exchange'
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
