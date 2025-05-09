@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2, AlertCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -14,9 +14,12 @@ import { useTheme } from '@/lib/theme-provider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface GoldAsset {
+  id: number;
   goldType: string;
   amount: string;
   purchasePrice: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface User {
@@ -42,9 +45,17 @@ export default function GoldStockPage() {
   const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExchangeDialogOpen, setIsExchangeDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<GoldAsset | null>(null);
   const [addFormData, setAddFormData] = useState({
+    goldType: 'ทองสมาคม 96.5%',
+    grams: '',
+    purchasePrice: '',
+  });
+  const [editFormData, setEditFormData] = useState({
     goldType: 'ทองสมาคม 96.5%',
     grams: '',
     purchasePrice: '',
@@ -86,7 +97,7 @@ export default function GoldStockPage() {
     try {
       const response = await fetch('/api/gold-assets');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as GoldAsset[];
         // Filter for admin's 96.5% gold assets only
         const adminGoldAssets = data.filter((asset: GoldAsset) => 
           asset.goldType === 'ทองสมาคม 96.5%'
@@ -169,6 +180,84 @@ export default function GoldStockPage() {
     } catch (error) {
       console.error('Error adding gold stock:', error);
       toast.error('Failed to add gold stock');
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedAsset) return;
+    
+    setIsProcessing(true);
+
+    try {
+      // Convert grams to baht before sending to API
+      const bathAmount = calculateBaht(Number(editFormData.grams));
+
+      // Since there's no direct API for updating gold assets, we'll need to:
+      // 1. Delete the existing asset (or set amount to 0)
+      // 2. Create a new asset with the updated values
+
+      // First, set the existing asset amount to 0
+      const deleteResponse = await fetch(`/api/gold-assets/${selectedAsset.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!deleteResponse.ok) {
+        throw new Error('Failed to update gold stock');
+      }
+
+      // Then create a new asset with the updated values
+      const addResponse = await fetch('/api/management/gold-stock/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          goldType: editFormData.goldType,
+          amount: bathAmount,
+          purchasePrice: editFormData.purchasePrice,
+        }),
+      });
+
+      if (!addResponse.ok) {
+        throw new Error('Failed to update gold stock');
+      }
+
+      toast.success('Gold stock updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedAsset(null);
+      fetchGoldAssets();
+    } catch (error) {
+      console.error('Error updating gold stock:', error);
+      toast.error('Failed to update gold stock');
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function handleDeleteAsset() {
+    if (!selectedAsset) return;
+    
+    setIsProcessing(true);
+
+    try {
+      const response = await fetch(`/api/gold-assets/${selectedAsset.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete gold stock');
+      }
+
+      toast.success('Gold stock deleted successfully');
+      setIsDeleteDialogOpen(false);
+      setSelectedAsset(null);
+      fetchGoldAssets();
+    } catch (error) {
+      console.error('Error deleting gold stock:', error);
+      toast.error('Failed to delete gold stock');
     } finally {
       setIsProcessing(false);
     }
@@ -302,9 +391,9 @@ export default function GoldStockPage() {
               <div className="mt-6">
                 <h3 className={`text-lg font-medium mb-4 ${theme === 'dark' ? 'text-white' : ''}`}>Stock History</h3>
                 <div className="space-y-4">
-                  {goldAssets.map((asset, index) => (
+                  {goldAssets.map((asset) => (
                     <div
-                      key={index}
+                      key={asset.id}
                       className={`p-4 border rounded-lg ${
                         theme === 'dark' 
                           ? 'bg-[#1a1a1a] border-[#2A2A2A]' 
@@ -320,15 +409,47 @@ export default function GoldStockPage() {
                             <p>จำนวน: {Number(asset.amount).toFixed(4)} บาท</p>
                             <p>({calculateGrams(Number(asset.amount))} กรัม)</p>
                             <p>ราคาซื้อ: ฿{Number(asset.purchasePrice).toLocaleString()}/บาท</p>
+                            <p>วันที่: {new Date(asset.createdAt).toLocaleDateString('th-TH')}</p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="flex flex-col items-end">
                           <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
                             มูลค่ารวม
                           </p>
                           <p className="text-orange-500 font-bold">
                             ฿{(Number(asset.amount) * Number(asset.purchasePrice)).toLocaleString()}
                           </p>
+                          <div className="flex space-x-2 mt-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#252525]' : ''}
+                              onClick={() => {
+                                setSelectedAsset(asset);
+                                setEditFormData({
+                                  goldType: asset.goldType,
+                                  grams: calculateGrams(Number(asset.amount)),
+                                  purchasePrice: asset.purchasePrice,
+                                });
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" />
+                              แก้ไข
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className={`text-red-500 ${theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#252525]' : ''}`}
+                              onClick={() => {
+                                setSelectedAsset(asset);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              ลบ
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -411,6 +532,129 @@ export default function GoldStockPage() {
               )}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Stock Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
+          <DialogHeader>
+            <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
+              แก้ไข Stock ทอง
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="editGoldType" className={theme === 'dark' ? 'text-white' : ''}>ประเภททอง</Label>
+              <Input
+                id="editGoldType"
+                value={editFormData.goldType}
+                disabled
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="editGrams" className={theme === 'dark' ? 'text-white' : ''}>จำนวน (กรัม)</Label>
+              <Input
+                id="editGrams"
+                type="number"
+                step="0.01"
+                value={editFormData.grams}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, grams: e.target.value }))}
+                placeholder="ระบุจำนวนกรัม"
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+                required
+              />
+              {editFormData.grams && (
+                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {calculateBaht(Number(editFormData.grams))} บาท
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="editPurchasePrice" className={theme === 'dark' ? 'text-white' : ''}>ราคาต่อหน่วย (บาท)</Label>
+              <Input
+                id="editPurchasePrice"
+                type="number"
+                step="0.01"
+                value={editFormData.purchasePrice}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, purchasePrice: e.target.value }))}
+                placeholder="ระบุราคาต่อหน่วย"
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+                required
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังบันทึก...
+                </>
+              ) : (
+                'บันทึกการแก้ไข'
+              )}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
+          <DialogHeader>
+            <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
+              ยืนยันการลบ Stock ทอง
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-red-50'} flex items-start`}>
+              <AlertCircle className={`h-5 w-5 mr-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-500'} mt-0.5`} />
+              <div>
+                <p className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                  คุณแน่ใจหรือไม่ที่จะลบรายการนี้?
+                </p>
+                {selectedAsset && (
+                  <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {selectedAsset.goldType} - {Number(selectedAsset.amount).toFixed(4)} บาท ({calculateGrams(Number(selectedAsset.amount))} กรัม)
+                  </p>
+                )}
+                <p className={`text-sm mt-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+                  การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteDialogOpen(false)}
+                className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#252525] text-white' : ''}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteAsset}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    กำลังลบ...
+                  </>
+                ) : (
+                  'ยืนยันการลบ'
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
