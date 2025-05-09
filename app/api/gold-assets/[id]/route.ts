@@ -4,10 +4,7 @@ import { goldAssets } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { eq } from 'drizzle-orm';
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: Request) {
   try {
     const user = await getUser();
     
@@ -18,8 +15,11 @@ export async function DELETE(
       );
     }
 
-    const id = parseInt(params.id);
-    if (isNaN(id)) {
+    // Extract ID from URL path
+    const pathParts = new URL(request.url).pathname.split('/');
+    const idStr = pathParts[pathParts.length - 1];
+    const idNum = parseInt(idStr);
+    if (isNaN(idNum)) {
       return NextResponse.json(
         { error: 'Invalid asset ID' },
         { status: 400 }
@@ -29,7 +29,7 @@ export async function DELETE(
     // Delete the gold asset
     await db
       .delete(goldAssets)
-      .where(eq(goldAssets.id, id));
+      .where(eq(goldAssets.id, idNum));
 
     return NextResponse.json({ success: true });
   } catch (error) {
