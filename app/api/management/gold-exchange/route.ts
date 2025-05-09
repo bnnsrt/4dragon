@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets, transactions } from '@/lib/db/schema';
+import { goldAssets, users, transactions } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { eq, and, sql } from 'drizzle-orm';
 import { pusherServer } from '@/lib/pusher';
@@ -16,21 +16,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const { userId, amount, goldType = 'ทองสมาคม 96.5%' } = await request.json();
+    const { customerId, goldType, amount } = await request.json();
 
-    if (!userId || !amount) {
+    if (!customerId || !goldType || !amount || Number(amount) <= 0) {
       return NextResponse.json(
-        { error: 'User ID and amount are required' },
+        { error: 'Invalid request data' },
         { status: 400 }
       );
     }
 
     // Start a transaction
     const result = await db.transaction(async (tx) => {
+      // Check if customer exists
+      const customer = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, customerId))
+        .limit(1);
+
+      if (customer.length === 0) {
+        throw new Error('Customer not found');
+      }
+
       // Check if admin has enough gold
-      const [adminGold] = await tx
+      const [adminAsset] = await tx
         .select({
-          totalAmount: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+          total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
         })
         .from(goldAssets)
         .where(
@@ -40,71 +51,12 @@ export async function POST(request: Request) {
           )
         );
 
-      const adminGoldAmount = Number(adminGold?.totalAmount || 0);
-      
-      if (adminGoldAmount < Number(amount)) {
-        throw new Error(`Insufficient gold stock. Available: ${adminGoldAmount}`);
+      if (Number(adminAsset.total) < Number(amount)) {
+        throw new Error('Insufficient gold balance');
       }
 
-      // Get current gold price for the transaction
-      const [adminGoldAsset] = await tx
-        .select()
-        .from(goldAssets)
-        .where(
-          and(
-            eq(goldAssets.userId, user.id),
-            eq(goldAssets.goldType, goldType)
-          )
-        )
-        .orderBy(goldAssets.createdAt)
-        .limit(1);
-
-      const currentPrice = adminGoldAsset ? Number(adminGoldAsset.purchasePrice) : 0;
-
-      // Create a transaction record
-      await tx.insert(transactions).values({
-        userId: Number(userId),
-        goldType,
-        amount,
-        pricePerUnit: currentPrice.toString(),
-        totalPrice: (Number(amount) * currentPrice).toString(),
-        type: 'exchange', // New transaction type for exchanges
-      });
-
-      // Check if user has gold assets of this type
-      const [userGold] = await tx
-        .select()
-        .from(goldAssets)
-        .where(
-          and(
-            eq(goldAssets.userId, Number(userId)),
-            eq(goldAssets.goldType, goldType)
-          )
-        )
-        .limit(1);
-
-      if (userGold) {
-        // Update existing gold asset
-        await tx
-          .update(goldAssets)
-          .set({
-            amount: sql`${goldAssets.amount} + ${amount}`,
-            updatedAt: new Date(),
-          })
-          .where(eq(goldAssets.id, userGold.id));
-      } else {
-        // Create new gold asset for user
-        await tx.insert(goldAssets).values({
-          userId: Number(userId),
-          goldType,
-          amount,
-          purchasePrice: currentPrice.toString(),
-        });
-      }
-
-      // Reduce admin's gold stock
-      // Find admin's gold assets and reduce from them
-      const adminAssets = await tx
+      // Reduce admin's gold (subtract from admin's stock)
+      const adminGoldAssets = await tx
         .select()
         .from(goldAssets)
         .where(
@@ -115,33 +67,50 @@ export async function POST(request: Request) {
         )
         .orderBy(goldAssets.createdAt);
 
-      let remainingAmountToReduce = Number(amount);
+      let remainingAmountToSubtract = Number(amount);
       
-      for (const asset of adminAssets) {
+      for (const asset of adminGoldAssets) {
         const assetAmount = Number(asset.amount);
         if (assetAmount <= 0) continue;
 
-        const amountToReduceFromAsset = Math.min(assetAmount, remainingAmountToReduce);
+        const amountToSubtractFromAsset = Math.min(assetAmount, remainingAmountToSubtract);
         
-        if (amountToReduceFromAsset > 0) {
+        if (amountToSubtractFromAsset > 0) {
           await tx
             .update(goldAssets)
             .set({
-              amount: sql`${goldAssets.amount} - ${amountToReduceFromAsset}`,
+              amount: sql`${goldAssets.amount} - ${amountToSubtractFromAsset}`,
               updatedAt: new Date(),
             })
             .where(eq(goldAssets.id, asset.id));
 
-          remainingAmountToReduce -= amountToReduceFromAsset;
+          remainingAmountToSubtract -= amountToSubtractFromAsset;
         }
 
-        if (remainingAmountToReduce <= 0) break;
+        if (remainingAmountToSubtract <= 0) break;
       }
 
-      // Get updated admin gold amount
-      const [updatedAdminGold] = await tx
+      // Add gold to customer's account
+      // First check if customer already has this gold type
+      const customerAsset = await tx
+        .select()
+        .from(goldAssets)
+        .where(
+          and(
+            eq(goldAssets.userId, customerId),
+            eq(goldAssets.goldType, goldType)
+          )
+        )
+        .limit(1);
+
+      // Get average purchase price from admin's assets
+      const [avgPrice] = await tx
         .select({
-          totalAmount: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+          avgPrice: sql<string>`CASE 
+            WHEN sum(${goldAssets.amount}) > 0 
+            THEN sum(${goldAssets.amount} * ${goldAssets.purchasePrice}) / sum(${goldAssets.amount})
+            ELSE '0' 
+          END`
         })
         .from(goldAssets)
         .where(
@@ -151,24 +120,39 @@ export async function POST(request: Request) {
           )
         );
 
-      // Get updated user gold amount
-      const [updatedUserGold] = await tx
-        .select({
-          totalAmount: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
-        })
-        .from(goldAssets)
-        .where(
-          and(
-            eq(goldAssets.userId, Number(userId)),
-            eq(goldAssets.goldType, goldType)
-          )
-        );
+      const purchasePrice = avgPrice.avgPrice || '0';
+      const totalPrice = (Number(amount) * Number(purchasePrice)).toString();
 
-      return {
-        success: true,
-        remainingStock: updatedAdminGold?.totalAmount || '0',
-        userGoldAmount: updatedUserGold?.totalAmount || '0'
-      };
+      if (customerAsset.length > 0) {
+        // Update existing asset
+        await tx
+          .update(goldAssets)
+          .set({
+            amount: sql`${goldAssets.amount} + ${amount}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(goldAssets.id, customerAsset[0].id));
+      } else {
+        // Create new asset for customer
+        await tx.insert(goldAssets).values({
+          userId: customerId,
+          goldType,
+          amount,
+          purchasePrice,
+        });
+      }
+
+      // Record the transaction
+      await tx.insert(transactions).values({
+        userId: customerId,
+        goldType,
+        amount,
+        pricePerUnit: purchasePrice,
+        totalPrice,
+        type: 'exchange',
+      });
+
+      return { success: true };
     });
 
     // Trigger Pusher event to update gold data in real-time

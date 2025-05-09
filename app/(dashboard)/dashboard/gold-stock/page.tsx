@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Scissors, User } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -19,11 +19,10 @@ interface GoldAsset {
   purchasePrice: string;
 }
 
-interface UserWithGold {
+interface User {
   id: number;
   name: string | null;
   email: string;
-  goldAmount: string;
 }
 
 const BAHT_TO_GRAM = 15.2; // 1 baht = 15.2 grams for 96.5% gold
@@ -40,23 +39,28 @@ export default function GoldStockPage() {
   const { user } = useUser();
   const { theme } = useTheme();
   const [goldAssets, setGoldAssets] = useState<GoldAsset[]>([]);
+  const [customers, setCustomers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isExchangeDialogOpen, setIsExchangeDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [formData, setFormData] = useState({
+  const [addFormData, setAddFormData] = useState({
     goldType: 'ทองสมาคม 96.5%',
     grams: '',
     purchasePrice: '',
   });
-  const [usersWithGold, setUsersWithGold] = useState<UserWithGold[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [exchangeAmount, setExchangeAmount] = useState('');
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [exchangeFormData, setExchangeFormData] = useState({
+    customerId: '',
+    goldType: 'ทองสมาคม 96.5%',
+    grams: '',
+  });
 
   useEffect(() => {
     fetchGoldAssets();
-  }, []);
+    if (user?.role === 'admin') {
+      fetchCustomers();
+    }
+  }, [user]);
 
   if (!user) {
     redirect('/sign-in');
@@ -97,36 +101,46 @@ export default function GoldStockPage() {
     }
   }
 
-  async function fetchUsersWithGold() {
-    setLoadingUsers(true);
+  async function fetchCustomers() {
     try {
+      // Fetch all users who have gold assets
       const response = await fetch('/api/admin/savings-summary');
       if (response.ok) {
         const data = await response.json();
-        // Map user summaries to the format we need
-        const users = data.userSummaries.map((summary: any) => ({
-          id: summary.userId,
-          name: summary.userName || summary.userEmail,
-          email: summary.userEmail,
-          goldAmount: summary.totalAmount
-        }));
-        setUsersWithGold(users);
+        // Extract unique users from userSummaries
+        const userSummaries = data.userSummaries || [];
+        
+        // Create a map to deduplicate users
+        const userMap = new Map();
+        
+        userSummaries.forEach((summary: any) => {
+          // Only include users who have gold (amount > 0)
+          if (Number(summary.totalAmount) > 0) {
+            userMap.set(summary.userId, {
+              id: summary.userId,
+              name: summary.userName,
+              email: summary.userEmail
+            });
+          }
+        });
+        
+        // Convert map to array
+        const customersList = Array.from(userMap.values());
+        setCustomers(customersList);
       }
     } catch (error) {
-      console.error('Error fetching users with gold:', error);
-      toast.error('Failed to fetch users with gold');
-    } finally {
-      setLoadingUsers(false);
+      console.error('Error fetching customers:', error);
+      toast.error('Failed to fetch customer data');
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleAddSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsProcessing(true);
 
     try {
       // Convert grams to baht before sending to API
-      const bathAmount = calculateBaht(Number(formData.grams));
+      const bathAmount = calculateBaht(Number(addFormData.grams));
 
       const response = await fetch('/api/management/gold-stock/add', {
         method: 'POST',
@@ -134,9 +148,9 @@ export default function GoldStockPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          goldType: formData.goldType,
+          goldType: addFormData.goldType,
           amount: bathAmount,
-          purchasePrice: formData.purchasePrice,
+          purchasePrice: addFormData.purchasePrice,
         }),
       });
 
@@ -145,8 +159,8 @@ export default function GoldStockPage() {
       }
 
       toast.success('Gold stock added successfully');
-      setIsDialogOpen(false);
-      setFormData({
+      setIsAddDialogOpen(false);
+      setAddFormData({
         goldType: 'ทองสมาคม 96.5%',
         grams: '',
         purchasePrice: '',
@@ -166,17 +180,17 @@ export default function GoldStockPage() {
 
     try {
       // Convert grams to baht before sending to API
-      const bathAmount = calculateBaht(Number(exchangeAmount));
-      
-      const response = await fetch('/api/management/gold-exchange', {
+      const bathAmount = calculateBaht(Number(exchangeFormData.grams));
+
+      const response = await fetch('/api/management/gold-stock/exchange', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: selectedUserId,
+          customerId: exchangeFormData.customerId,
+          goldType: exchangeFormData.goldType,
           amount: bathAmount,
-          goldType: 'ทองสมาคม 96.5%'
         }),
       });
 
@@ -187,8 +201,11 @@ export default function GoldStockPage() {
 
       toast.success('Gold exchanged successfully');
       setIsExchangeDialogOpen(false);
-      setSelectedUserId('');
-      setExchangeAmount('');
+      setExchangeFormData({
+        customerId: '',
+        goldType: 'ทองสมาคม 96.5%',
+        grams: '',
+      });
       fetchGoldAssets();
     } catch (error) {
       console.error('Error exchanging gold:', error);
@@ -213,17 +230,14 @@ export default function GoldStockPage() {
         </h1>
         <div className="flex gap-2">
           <Button 
-            onClick={() => {
-              fetchUsersWithGold();
-              setIsExchangeDialogOpen(true);
-            }}
+            onClick={() => setIsExchangeDialogOpen(true)}
             className="bg-blue-500 hover:bg-blue-600 text-white"
           >
-            <Scissors className="mr-2 h-4 w-4" />
-            ตัด Stock เเลกทองลูกค้า
+            <Exchange className="mr-2 h-4 w-4" />
+            ตัด Stock แลกทองลูกค้า
           </Button>
           <Button 
-            onClick={() => setIsDialogOpen(true)}
+            onClick={() => setIsAddDialogOpen(true)}
             className="bg-orange-500 hover:bg-orange-600 text-white"
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -330,19 +344,20 @@ export default function GoldStockPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Add Stock Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
           <DialogHeader>
             <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
               เพิ่ม Stock ทอง
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleAddSubmit} className="space-y-4">
             <div>
               <Label htmlFor="goldType" className={theme === 'dark' ? 'text-white' : ''}>ประเภททอง</Label>
               <Input
                 id="goldType"
-                value={formData.goldType}
+                value={addFormData.goldType}
                 disabled
                 className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
               />
@@ -354,15 +369,15 @@ export default function GoldStockPage() {
                 id="grams"
                 type="number"
                 step="0.01"
-                value={formData.grams}
-                onChange={(e) => setFormData(prev => ({ ...prev, grams: e.target.value }))}
+                value={addFormData.grams}
+                onChange={(e) => setAddFormData(prev => ({ ...prev, grams: e.target.value }))}
                 placeholder="ระบุจำนวนกรัม"
                 className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
                 required
               />
-              {formData.grams && (
+              {addFormData.grams && (
                 <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {calculateBaht(Number(formData.grams))} บาท
+                  {calculateBaht(Number(addFormData.grams))} บาท
                 </p>
               )}
             </div>
@@ -373,8 +388,8 @@ export default function GoldStockPage() {
                 id="purchasePrice"
                 type="number"
                 step="0.01"
-                value={formData.purchasePrice}
-                onChange={(e) => setFormData(prev => ({ ...prev, purchasePrice: e.target.value }))}
+                value={addFormData.purchasePrice}
+                onChange={(e) => setAddFormData(prev => ({ ...prev, purchasePrice: e.target.value }))}
                 placeholder="ระบุราคาต่อหน่วย"
                 className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
                 required
@@ -399,86 +414,82 @@ export default function GoldStockPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Exchange Gold Dialog */}
       <Dialog open={isExchangeDialogOpen} onOpenChange={setIsExchangeDialogOpen}>
         <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
           <DialogHeader>
             <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
-              ตัด Stock เเลกทองลูกค้า
+              ตัด Stock แลกทองลูกค้า
             </DialogTitle>
           </DialogHeader>
-          {loadingUsers ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-            </div>
-          ) : (
-            <form onSubmit={handleExchangeSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="userId" className={theme === 'dark' ? 'text-white' : ''}>เลือกลูกค้า</Label>
-                <Select
-                  value={selectedUserId}
-                  onValueChange={setSelectedUserId}
-                >
-                  <SelectTrigger className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}>
-                    <SelectValue placeholder="เลือกลูกค้า" />
-                  </SelectTrigger>
-                  <SelectContent className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A]' : ''}>
-                    {usersWithGold.length > 0 ? (
-                      usersWithGold.map((user) => (
-                        <SelectItem 
-                          key={user.id} 
-                          value={user.id.toString()}
-                          className={theme === 'dark' ? 'text-white focus:bg-[#252525]' : ''}
-                        >
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2" />
-                            <span>{user.name} - {Number(user.goldAmount).toFixed(4)} บาท</span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>ไม่มีลูกค้าที่มีทอง</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedUserId && (
-                <div>
-                  <Label htmlFor="exchangeAmount" className={theme === 'dark' ? 'text-white' : ''}>จำนวนทอง (กรัม)</Label>
-                  <Input
-                    id="exchangeAmount"
-                    type="number"
-                    step="0.01"
-                    value={exchangeAmount}
-                    onChange={(e) => setExchangeAmount(e.target.value)}
-                    placeholder="ระบุจำนวนกรัม"
-                    className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
-                    required
-                  />
-                  {exchangeAmount && (
-                    <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {calculateBaht(Number(exchangeAmount))} บาท
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-                disabled={!selectedUserId || !exchangeAmount || isProcessing}
+          <form onSubmit={handleExchangeSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="customerId" className={theme === 'dark' ? 'text-white' : ''}>เลือกลูกค้า</Label>
+              <Select
+                value={exchangeFormData.customerId}
+                onValueChange={(value) => setExchangeFormData(prev => ({ ...prev, customerId: value }))}
               >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังดำเนินการ...
-                  </>
-                ) : (
-                  'ยืนยันการแลกทอง'
-                )}
-              </Button>
-            </form>
-          )}
+                <SelectTrigger className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}>
+                  <SelectValue placeholder="เลือกลูกค้า" />
+                </SelectTrigger>
+                <SelectContent className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}>
+                  {customers.map((customer) => (
+                    <SelectItem 
+                      key={customer.id} 
+                      value={customer.id.toString()}
+                      className={theme === 'dark' ? 'text-white focus:bg-[#252525]' : ''}
+                    >
+                      {customer.name || customer.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="goldType" className={theme === 'dark' ? 'text-white' : ''}>ประเภททอง</Label>
+              <Input
+                id="goldType"
+                value={exchangeFormData.goldType}
+                disabled
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="grams" className={theme === 'dark' ? 'text-white' : ''}>จำนวน (กรัม)</Label>
+              <Input
+                id="grams"
+                type="number"
+                step="0.01"
+                value={exchangeFormData.grams}
+                onChange={(e) => setExchangeFormData(prev => ({ ...prev, grams: e.target.value }))}
+                placeholder="ระบุจำนวนกรัม"
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+                required
+              />
+              {exchangeFormData.grams && (
+                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {calculateBaht(Number(exchangeFormData.grams))} บาท
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={isProcessing || !exchangeFormData.customerId || !exchangeFormData.grams}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังดำเนินการ...
+                </>
+              ) : (
+                'ยืนยันการแลกทอง'
+              )}
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </section>

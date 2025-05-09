@@ -40,6 +40,29 @@ export default function AssetPage() {
     return (bathAmount * BAHT_TO_GRAM).toFixed(2);
   };
 
+  async function fetchData() {
+    try {
+      const [assetResponse, pricesResponse] = await Promise.all([
+        fetch('/api/asset-data'),
+        fetch('/api/gold')
+      ]);
+
+      if (assetResponse.ok && pricesResponse.ok) {
+        const [assetData, pricesData] = await Promise.all([
+          assetResponse.json(),
+          pricesResponse.json()
+        ]);
+
+        setAssetData(assetData);
+        setPrices(pricesData);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetchData();
 
@@ -72,29 +95,6 @@ export default function AssetPage() {
       pusherClient.unsubscribe('gold-transactions');
     };
   }, []);
-
-  async function fetchData() {
-    try {
-      const [assetResponse, pricesResponse] = await Promise.all([
-        fetch('/api/asset-data'),
-        fetch('/api/gold')
-      ]);
-
-      if (assetResponse.ok && pricesResponse.ok) {
-        const [assetData, pricesData] = await Promise.all([
-          assetResponse.json(),
-          pricesResponse.json()
-        ]);
-
-        setAssetData(assetData);
-        setPrices(pricesData);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const getBuybackPrice = useMemo(() => {
     const priceMap: Record<string, string> = {
