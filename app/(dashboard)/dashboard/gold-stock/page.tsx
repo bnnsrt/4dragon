@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2, AlertCircle } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -26,6 +26,7 @@ interface User {
   id: number;
   name: string | null;
   email: string;
+  totalGold?: string; // Total gold amount for the user
 }
 
 const BAHT_TO_GRAM = 15.2; // 1 baht = 15.2 grams for 96.5% gold
@@ -47,7 +48,6 @@ export default function GoldStockPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExchangeDialogOpen, setIsExchangeDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<GoldAsset | null>(null);
   const [addFormData, setAddFormData] = useState({
@@ -97,7 +97,7 @@ export default function GoldStockPage() {
     try {
       const response = await fetch('/api/gold-assets');
       if (response.ok) {
-        const data = await response.json() as GoldAsset[];
+        const data = await response.json();
         // Filter for admin's 96.5% gold assets only
         const adminGoldAssets = data.filter((asset: GoldAsset) => 
           asset.goldType === 'ทองสมาคม 96.5%'
@@ -130,7 +130,8 @@ export default function GoldStockPage() {
             userMap.set(summary.userId, {
               id: summary.userId,
               name: summary.userName,
-              email: summary.userEmail
+              email: summary.userEmail,
+              totalGold: summary.totalAmount // Add total gold amount
             });
           }
         });
@@ -195,22 +196,8 @@ export default function GoldStockPage() {
       // Convert grams to baht before sending to API
       const bathAmount = calculateBaht(Number(editFormData.grams));
 
-      // Since there's no direct API for updating gold assets, we'll need to:
-      // 1. Delete the existing asset (or set amount to 0)
-      // 2. Create a new asset with the updated values
-
-      // First, set the existing asset amount to 0
-      const deleteResponse = await fetch(`/api/gold-assets/${selectedAsset.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!deleteResponse.ok) {
-        throw new Error('Failed to update gold stock');
-      }
-
-      // Then create a new asset with the updated values
-      const addResponse = await fetch('/api/management/gold-stock/add', {
-        method: 'POST',
+      const response = await fetch(`/api/gold-assets/${selectedAsset.id}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -221,7 +208,7 @@ export default function GoldStockPage() {
         }),
       });
 
-      if (!addResponse.ok) {
+      if (!response.ok) {
         throw new Error('Failed to update gold stock');
       }
 
@@ -237,29 +224,25 @@ export default function GoldStockPage() {
     }
   }
 
-  async function handleDeleteAsset() {
-    if (!selectedAsset) return;
-    
-    setIsProcessing(true);
+  async function handleDeleteAsset(assetId: number) {
+    if (!confirm('Are you sure you want to delete this gold asset?')) {
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/gold-assets/${selectedAsset.id}`, {
+      const response = await fetch(`/api/gold-assets/${assetId}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete gold stock');
+        throw new Error('Failed to delete gold asset');
       }
 
-      toast.success('Gold stock deleted successfully');
-      setIsDeleteDialogOpen(false);
-      setSelectedAsset(null);
+      toast.success('Gold asset deleted successfully');
       fetchGoldAssets();
     } catch (error) {
-      console.error('Error deleting gold stock:', error);
-      toast.error('Failed to delete gold stock');
-    } finally {
-      setIsProcessing(false);
+      console.error('Error deleting gold asset:', error);
+      toast.error('Failed to delete gold asset');
     }
   }
 
@@ -409,10 +392,9 @@ export default function GoldStockPage() {
                             <p>จำนวน: {Number(asset.amount).toFixed(4)} บาท</p>
                             <p>({calculateGrams(Number(asset.amount))} กรัม)</p>
                             <p>ราคาซื้อ: ฿{Number(asset.purchasePrice).toLocaleString()}/บาท</p>
-                            <p>วันที่: {new Date(asset.createdAt).toLocaleDateString('th-TH')}</p>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end">
+                        <div className="text-right">
                           <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
                             มูลค่ารวม
                           </p>
@@ -423,7 +405,6 @@ export default function GoldStockPage() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#252525]' : ''}
                               onClick={() => {
                                 setSelectedAsset(asset);
                                 setEditFormData({
@@ -433,21 +414,21 @@ export default function GoldStockPage() {
                                 });
                                 setIsEditDialogOpen(true);
                               }}
+                              className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#202020]' : ''}
                             >
-                              <Pencil className="h-4 w-4 mr-1" />
-                              แก้ไข
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="outline" 
                               size="sm"
-                              className={`text-red-500 ${theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#252525]' : ''}`}
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setIsDeleteDialogOpen(true);
-                              }}
+                              onClick={() => handleDeleteAsset(asset.id)}
+                              className={`text-red-500 ${
+                                theme === 'dark' 
+                                  ? 'border-[#2A2A2A] hover:bg-[#202020]' 
+                                  : 'hover:bg-red-50'
+                              }`}
                             >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              ลบ
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -605,59 +586,6 @@ export default function GoldStockPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
-          <DialogHeader>
-            <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
-              ยืนยันการลบ Stock ทอง
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-red-50'} flex items-start`}>
-              <AlertCircle className={`h-5 w-5 mr-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-500'} mt-0.5`} />
-              <div>
-                <p className={`font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                  คุณแน่ใจหรือไม่ที่จะลบรายการนี้?
-                </p>
-                {selectedAsset && (
-                  <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {selectedAsset.goldType} - {Number(selectedAsset.amount).toFixed(4)} บาท ({calculateGrams(Number(selectedAsset.amount))} กรัม)
-                  </p>
-                )}
-                <p className={`text-sm mt-2 ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
-                  การดำเนินการนี้ไม่สามารถย้อนกลับได้
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setIsDeleteDialogOpen(false)}
-                className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#252525] text-white' : ''}
-              >
-                ยกเลิก
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteAsset}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังลบ...
-                  </>
-                ) : (
-                  'ยืนยันการลบ'
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Exchange Gold Dialog */}
       <Dialog open={isExchangeDialogOpen} onOpenChange={setIsExchangeDialogOpen}>
         <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
@@ -683,7 +611,7 @@ export default function GoldStockPage() {
                       value={customer.id.toString()}
                       className={theme === 'dark' ? 'text-white focus:bg-[#252525]' : ''}
                     >
-                      {customer.name || customer.email}
+                      {customer.name || customer.email} - {Number(customer.totalGold).toFixed(4)} บาท ({calculateGrams(Number(customer.totalGold))} กรัม)
                     </SelectItem>
                   ))}
                 </SelectContent>
