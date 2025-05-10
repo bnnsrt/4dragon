@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets, transactions } from '@/lib/db/schema';
+import { goldAssets, transactions, users } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { eq, and } from 'drizzle-orm';
 import { pusherServer } from '@/lib/pusher';
+import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
 
 export async function POST(request: Request) {
   try {
@@ -141,6 +142,17 @@ export async function POST(request: Request) {
       await pusherServer.trigger('gold-transactions', 'exchange', {
         message: 'Gold exchange completed',
         timestamp: new Date().toISOString(),
+      });
+
+      // Send Telegram notification
+      await sendGoldPurchaseNotification({
+        userName: `${user.name || user.email} (exchanged from ${customer.name || customer.email})`,
+        goldType,
+        amount: goldAmount,
+        totalPrice: goldAmount * Number(avgPurchasePrice),
+        pricePerUnit: Number(avgPurchasePrice),
+        remainingAmount: totalAdminGold + goldAmount,
+        totalUserBalance: 0 // Not relevant for exchange
       });
     } catch (txError) {
       console.error('Transaction error:', txError);
