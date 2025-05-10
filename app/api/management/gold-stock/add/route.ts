@@ -1,7 +1,6 @@
-// app/api/management/gold-stock/add/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets, users } from '@/lib/db/schema';
+import { goldAssets, users, userBalances } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
 import { eq, and, sql, ne } from 'drizzle-orm';
@@ -58,6 +57,15 @@ export async function POST(request: Request) {
         )
       );
 
+    // Get total balance across all users
+    const [totalUserBalance] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${userBalances.balance}), '0')`
+      })
+      .from(userBalances)
+      .leftJoin(users, eq(userBalances.userId, users.id))
+      .where(ne(users.role, 'admin'));
+
     const adminStockAmount = Number(adminStock?.total || 0);
     const userHoldingsAmount = Number(userHoldings?.total || 0);
     const availableStock = adminStockAmount - userHoldingsAmount;
@@ -70,7 +78,7 @@ export async function POST(request: Request) {
       totalPrice: Number(amount) * Number(purchasePrice),
       pricePerUnit: Number(purchasePrice),
       remainingAmount: availableStock,
-      totalUserBalance: 0 // Not relevant for stock addition
+      totalUserBalance: Number(totalUserBalance.total || 0)
     });
 
     return NextResponse.json({ success: true, asset: newAsset });

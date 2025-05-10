@@ -1,7 +1,6 @@
-// app/api/gold-assets/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets, users } from '@/lib/db/schema';
+import { goldAssets, users, userBalances } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { eq, and, sql, ne } from 'drizzle-orm';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
@@ -136,6 +135,15 @@ export async function PUT(
         )
       );
 
+    // Get total balance across all users
+    const [totalUserBalance] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${userBalances.balance}), '0')`
+      })
+      .from(userBalances)
+      .leftJoin(users, eq(userBalances.userId, users.id))
+      .where(ne(users.role, 'admin'));
+
     const adminStockAmount = Number(adminStock?.total || 0);
     const userHoldingsAmount = Number(userHoldings?.total || 0);
     const availableStock = adminStockAmount - userHoldingsAmount;
@@ -148,7 +156,7 @@ export async function PUT(
       totalPrice: Number(amount) * Number(purchasePrice),
       pricePerUnit: Number(purchasePrice),
       remainingAmount: availableStock,
-      totalUserBalance: 0 // Not relevant for stock edit
+      totalUserBalance: Number(totalUserBalance.total || 0)
     });
 
     return NextResponse.json({ success: true, asset: updatedAsset });
@@ -231,6 +239,15 @@ export async function DELETE(
         )
       );
 
+    // Get total balance across all users
+    const [totalUserBalance] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${userBalances.balance}), '0')`
+      })
+      .from(userBalances)
+      .leftJoin(users, eq(userBalances.userId, users.id))
+      .where(ne(users.role, 'admin'));
+
     const adminStockAmount = Number(adminStock?.total || 0);
     const userHoldingsAmount = Number(userHoldings?.total || 0);
     const availableStock = adminStockAmount - userHoldingsAmount;
@@ -243,7 +260,7 @@ export async function DELETE(
       totalPrice: -Number(assetToDelete.amount) * Number(assetToDelete.purchasePrice),
       pricePerUnit: Number(assetToDelete.purchasePrice),
       remainingAmount: availableStock, // Correct remaining amount after deletion
-      totalUserBalance: 0 // Not relevant for stock deletion
+      totalUserBalance: Number(totalUserBalance.total || 0)
     });
 
     return NextResponse.json({ success: true });

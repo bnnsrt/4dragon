@@ -1,4 +1,3 @@
-// app/(dashboard)/dashboard/gold-stock/page.tsx
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2 } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2, DollarSign } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -66,9 +65,11 @@ export default function GoldStockPage() {
     goldType: 'ทองสมาคม 96.5%',
     grams: '',
   });
+  const [totalUserBalance, setTotalUserBalance] = useState(0);
 
   useEffect(() => {
     fetchGoldAssets();
+    fetchTotalUserBalance();
     if (user?.role === 'admin') {
       fetchCustomers();
     }
@@ -110,6 +111,27 @@ export default function GoldStockPage() {
       toast.error('Failed to fetch gold stock data');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchTotalUserBalance() {
+    try {
+      const response = await fetch('/api/transactions/history');
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Calculate total value of all transactions
+        const total = data.reduce((sum: number, transaction: any) => {
+          if (transaction.type === 'buy') {
+            return sum + Number(transaction.totalPrice);
+          }
+          return sum;
+        }, 0);
+        
+        setTotalUserBalance(total);
+      }
+    } catch (error) {
+      console.error('Error fetching total user balance:', error);
     }
   }
 
@@ -179,6 +201,7 @@ export default function GoldStockPage() {
         purchasePrice: '',
       });
       fetchGoldAssets();
+      fetchTotalUserBalance();
     } catch (error) {
       console.error('Error adding gold stock:', error);
       toast.error('Failed to add gold stock');
@@ -217,6 +240,7 @@ export default function GoldStockPage() {
       setIsEditDialogOpen(false);
       setSelectedAsset(null);
       fetchGoldAssets();
+      fetchTotalUserBalance();
     } catch (error) {
       console.error('Error updating gold stock:', error);
       toast.error('Failed to update gold stock');
@@ -241,6 +265,7 @@ export default function GoldStockPage() {
 
       toast.success('Gold asset deleted successfully');
       fetchGoldAssets();
+      fetchTotalUserBalance();
     } catch (error) {
       console.error('Error deleting gold asset:', error);
       toast.error('Failed to delete gold asset');
@@ -280,6 +305,8 @@ export default function GoldStockPage() {
         grams: '',
       });
       fetchGoldAssets();
+      fetchCustomers();
+      fetchTotalUserBalance();
     } catch (error) {
       console.error('Error exchanging gold:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to exchange gold');
@@ -318,6 +345,25 @@ export default function GoldStockPage() {
           </Button>
         </div>
       </div>
+
+      {/* Total User Balance Card */}
+      <Card className={`mb-6 ${theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}`}>
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-4">
+            <div className={`p-3 rounded-full ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-orange-100'}`}>
+              <DollarSign className={`h-6 w-6 ${theme === 'dark' ? 'text-orange-400' : 'text-orange-500'}`} />
+            </div>
+            <div>
+              <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                เงินสดในระบบลูกค้าทั้งหมด
+              </p>
+              <p className="text-2xl font-bold text-orange-500">
+                ฿{totalUserBalance.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
         <CardHeader>

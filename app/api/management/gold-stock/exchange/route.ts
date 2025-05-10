@@ -1,7 +1,6 @@
-// app/api/management/gold-stock/exchange/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets, transactions, users } from '@/lib/db/schema';
+import { goldAssets, transactions, users, userBalances } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { eq, and, sql, ne } from 'drizzle-orm';
 import { pusherServer } from '@/lib/pusher';
@@ -12,6 +11,7 @@ const GOLD_TYPE = 'ทองสมาคม 96.5%';
 
 export async function POST(request: Request) {
   try {
+    // Verify user is authenticated and is an admin
     const user = await getUser();
     
     if (!user || user.role !== 'admin') {
@@ -21,8 +21,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const { customerId, goldType, amount } = await request.json();
+    // Parse request body
+    const body = await request.json();
+    const { customerId, goldType, amount } = body;
 
+    // Validate input
     if (!customerId || !goldType || !amount) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -164,6 +167,15 @@ export async function POST(request: Request) {
           )
         );
 
+      // Get total balance across all users
+      const [totalUserBalance] = await db
+        .select({
+          total: sql<string>`COALESCE(sum(${userBalances.balance}), '0')`
+        })
+        .from(userBalances)
+        .leftJoin(users, eq(userBalances.userId, users.id))
+        .where(ne(users.role, 'admin'));
+
       const adminStockAmount = Number(adminStock?.total || 0);
       const userHoldingsAmount = Number(userHoldings?.total || 0);
       const availableStock = adminStockAmount - userHoldingsAmount;
@@ -184,7 +196,7 @@ export async function POST(request: Request) {
         totalPrice: goldAmount * Number(avgPurchasePrice),
         pricePerUnit: Number(avgPurchasePrice),
         remainingAmount: availableStock,
-        totalUserBalance: 0 // Not relevant for exchange
+        totalUserBalance: Number(totalUserBalance.total || 0)
       });
     } catch (txError) {
       console.error('Transaction error:', txError);
