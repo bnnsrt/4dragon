@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { goldAssets, users, userBalances } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
@@ -8,10 +8,9 @@ import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
 const ADMIN_EMAIL = 'adminfortest@gmail.com';
 const GOLD_TYPE = 'ทองสมาคม 96.5%';
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
+  // Extract ID from URL path
+  const id = parseInt(request.url.split('/').pop() || '0');
   try {
     const user = await getUser();
     
@@ -22,7 +21,7 @@ export async function GET(
       );
     }
 
-    const id = parseInt(params.id);
+    // ID already parsed from URL
     
     if (isNaN(id)) {
       return NextResponse.json(
@@ -32,20 +31,20 @@ export async function GET(
     }
 
     // Get the gold asset
-    const asset = await db
+    const [asset] = await db
       .select()
       .from(goldAssets)
       .where(eq(goldAssets.id, id))
       .limit(1);
 
-    if (asset.length === 0) {
+    if (!asset) {
       return NextResponse.json(
         { error: 'Asset not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(asset[0]);
+    return NextResponse.json(asset);
   } catch (error) {
     console.error('Error fetching gold asset:', error);
     return NextResponse.json(
@@ -55,10 +54,9 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest) {
+  // Extract ID from URL path
+  const id = parseInt(request.url.split('/').pop() || '0');
   try {
     const user = await getUser();
     
@@ -69,7 +67,7 @@ export async function PUT(
       );
     }
 
-    const id = parseInt(params.id);
+    // ID already parsed from URL
     
     if (isNaN(id)) {
       return NextResponse.json(
@@ -169,10 +167,9 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest) {
+  // Extract ID from URL path
+  const id = parseInt(request.url.split('/').pop() || '0');
   try {
     const user = await getUser();
     
@@ -183,7 +180,7 @@ export async function DELETE(
       );
     }
 
-    const id = parseInt(params.id);
+    // ID already parsed from URL
     
     if (isNaN(id)) {
       return NextResponse.json(
@@ -207,9 +204,10 @@ export async function DELETE(
     }
 
     // Delete the gold asset
-    await db
+    const deleted = await db
       .delete(goldAssets)
-      .where(eq(goldAssets.id, id));
+      .where(eq(goldAssets.id, id))
+      .returning();
 
     // Calculate admin's total stock after deletion
     const [adminStock] = await db
