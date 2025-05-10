@@ -1,3 +1,4 @@
+// app/(dashboard)/dashboard/gold-stock/page.tsx
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,7 +84,7 @@ export default function GoldStockPage() {
         <Card className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <ShieldAlert className="h-12 w-12 text-orange-500 mb-4" />
-            <h2 className={`text-xl font-semibold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Access Denied</h2>
+            <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'} mb-2`}>Access Denied</h2>
             <p className={`text-center max-w-md ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
               Only administrators have access to gold stock management.
             </p>
@@ -131,7 +132,7 @@ export default function GoldStockPage() {
               id: summary.userId,
               name: summary.userName,
               email: summary.userEmail,
-              totalGold: summary.totalAmount // Add total gold amount
+              totalGold: summary.totalAmount
             });
           }
         });

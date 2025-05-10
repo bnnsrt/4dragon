@@ -1,8 +1,13 @@
+// app/api/management/gold-stock/add/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets } from '@/lib/db/schema';
+import { goldAssets, users } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
+import { eq, and, sql, ne } from 'drizzle-orm';
+
+const ADMIN_EMAIL = 'adminfortest@gmail.com';
+const GOLD_TYPE = 'ทองสมาคม 96.5%';
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +30,38 @@ export async function POST(request: Request) {
       purchasePrice,
     }).returning();
 
+    // Calculate admin's total stock
+    const [adminStock] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+      })
+      .from(goldAssets)
+      .leftJoin(users, eq(goldAssets.userId, users.id))
+      .where(
+        and(
+          eq(users.email, ADMIN_EMAIL),
+          eq(goldAssets.goldType, GOLD_TYPE)
+        )
+      );
+
+    // Calculate total user holdings (excluding admin)
+    const [userHoldings] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+      })
+      .from(goldAssets)
+      .leftJoin(users, eq(goldAssets.userId, users.id))
+      .where(
+        and(
+          ne(users.email, ADMIN_EMAIL),
+          eq(goldAssets.goldType, GOLD_TYPE)
+        )
+      );
+
+    const adminStockAmount = Number(adminStock?.total || 0);
+    const userHoldingsAmount = Number(userHoldings?.total || 0);
+    const availableStock = adminStockAmount - userHoldingsAmount;
+
     // Send Telegram notification
     await sendGoldPurchaseNotification({
       userName: user.name || user.email,
@@ -32,7 +69,7 @@ export async function POST(request: Request) {
       amount: Number(amount),
       totalPrice: Number(amount) * Number(purchasePrice),
       pricePerUnit: Number(purchasePrice),
-      remainingAmount: Number(amount),
+      remainingAmount: availableStock,
       totalUserBalance: 0 // Not relevant for stock addition
     });
 

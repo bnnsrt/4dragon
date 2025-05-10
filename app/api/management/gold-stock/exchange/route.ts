@@ -1,14 +1,17 @@
+// app/api/management/gold-stock/exchange/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { goldAssets, transactions, users } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql, ne } from 'drizzle-orm';
 import { pusherServer } from '@/lib/pusher';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
 
+const ADMIN_EMAIL = 'adminfortest@gmail.com';
+const GOLD_TYPE = 'ทองสมาคม 96.5%';
+
 export async function POST(request: Request) {
   try {
-    // Verify user is authenticated and is an admin
     const user = await getUser();
     
     if (!user || user.role !== 'admin') {
@@ -18,11 +21,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Parse request body
-    const body = await request.json();
-    const { customerId, goldType, amount } = body;
+    const { customerId, goldType, amount } = await request.json();
 
-    // Validate input
     if (!customerId || !goldType || !amount) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -136,6 +136,38 @@ export async function POST(request: Request) {
         purchasePrice: avgPurchasePrice.toString(),
       });
 
+      // Calculate admin's total stock after exchange
+      const [adminStock] = await db
+        .select({
+          total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+        })
+        .from(goldAssets)
+        .leftJoin(users, eq(goldAssets.userId, users.id))
+        .where(
+          and(
+            eq(users.email, ADMIN_EMAIL),
+            eq(goldAssets.goldType, GOLD_TYPE)
+          )
+        );
+
+      // Calculate total user holdings (excluding admin)
+      const [userHoldings] = await db
+        .select({
+          total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+        })
+        .from(goldAssets)
+        .leftJoin(users, eq(goldAssets.userId, users.id))
+        .where(
+          and(
+            ne(users.email, ADMIN_EMAIL),
+            eq(goldAssets.goldType, GOLD_TYPE)
+          )
+        );
+
+      const adminStockAmount = Number(adminStock?.total || 0);
+      const userHoldingsAmount = Number(userHoldings?.total || 0);
+      const availableStock = adminStockAmount - userHoldingsAmount;
+
       // Operation successful
       
       // Trigger real-time update for the savings summary
@@ -151,7 +183,7 @@ export async function POST(request: Request) {
         amount: goldAmount,
         totalPrice: goldAmount * Number(avgPurchasePrice),
         pricePerUnit: Number(avgPurchasePrice),
-        remainingAmount: totalAdminGold + goldAmount,
+        remainingAmount: availableStock,
         totalUserBalance: 0 // Not relevant for exchange
       });
     } catch (txError) {

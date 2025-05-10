@@ -1,13 +1,17 @@
+// app/api/gold-assets/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets } from '@/lib/db/schema';
+import { goldAssets, users } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
-import { eq } from 'drizzle-orm';
+import { eq, and, sql, ne } from 'drizzle-orm';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
+
+const ADMIN_EMAIL = 'adminfortest@gmail.com';
+const GOLD_TYPE = 'ทองสมาคม 96.5%';
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const user = await getUser();
@@ -19,8 +23,7 @@ export async function GET(
       );
     }
 
-    const { id: paramId } = await params;
-    const id = parseInt(paramId);
+    const id = parseInt(params.id);
     
     if (isNaN(id)) {
       return NextResponse.json(
@@ -55,7 +58,7 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const user = await getUser();
@@ -67,8 +70,7 @@ export async function PUT(
       );
     }
 
-    const { id: paramId } = await params;
-    const id = parseInt(paramId);
+    const id = parseInt(params.id);
     
     if (isNaN(id)) {
       return NextResponse.json(
@@ -106,6 +108,38 @@ export async function PUT(
       .where(eq(goldAssets.id, id))
       .returning();
 
+    // Calculate admin's total stock after update
+    const [adminStock] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+      })
+      .from(goldAssets)
+      .leftJoin(users, eq(goldAssets.userId, users.id))
+      .where(
+        and(
+          eq(users.email, ADMIN_EMAIL),
+          eq(goldAssets.goldType, GOLD_TYPE)
+        )
+      );
+
+    // Calculate total user holdings (excluding admin)
+    const [userHoldings] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+      })
+      .from(goldAssets)
+      .leftJoin(users, eq(goldAssets.userId, users.id))
+      .where(
+        and(
+          ne(users.email, ADMIN_EMAIL),
+          eq(goldAssets.goldType, GOLD_TYPE)
+        )
+      );
+
+    const adminStockAmount = Number(adminStock?.total || 0);
+    const userHoldingsAmount = Number(userHoldings?.total || 0);
+    const availableStock = adminStockAmount - userHoldingsAmount;
+
     // Send Telegram notification for the edit
     await sendGoldPurchaseNotification({
       userName: user.name || user.email,
@@ -113,7 +147,7 @@ export async function PUT(
       amount: Number(amount),
       totalPrice: Number(amount) * Number(purchasePrice),
       pricePerUnit: Number(purchasePrice),
-      remainingAmount: Number(amount),
+      remainingAmount: availableStock,
       totalUserBalance: 0 // Not relevant for stock edit
     });
 
@@ -129,7 +163,7 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const user = await getUser();
@@ -141,8 +175,7 @@ export async function DELETE(
       );
     }
 
-    const { id: paramId } = await params;
-    const id = parseInt(paramId);
+    const id = parseInt(params.id);
     
     if (isNaN(id)) {
       return NextResponse.json(
@@ -170,6 +203,38 @@ export async function DELETE(
       .delete(goldAssets)
       .where(eq(goldAssets.id, id));
 
+    // Calculate admin's total stock after deletion
+    const [adminStock] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+      })
+      .from(goldAssets)
+      .leftJoin(users, eq(goldAssets.userId, users.id))
+      .where(
+        and(
+          eq(users.email, ADMIN_EMAIL),
+          eq(goldAssets.goldType, GOLD_TYPE)
+        )
+      );
+
+    // Calculate total user holdings (excluding admin)
+    const [userHoldings] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${goldAssets.amount}), '0')`
+      })
+      .from(goldAssets)
+      .leftJoin(users, eq(goldAssets.userId, users.id))
+      .where(
+        and(
+          ne(users.email, ADMIN_EMAIL),
+          eq(goldAssets.goldType, GOLD_TYPE)
+        )
+      );
+
+    const adminStockAmount = Number(adminStock?.total || 0);
+    const userHoldingsAmount = Number(userHoldings?.total || 0);
+    const availableStock = adminStockAmount - userHoldingsAmount;
+
     // Send Telegram notification for the deletion
     await sendGoldPurchaseNotification({
       userName: user.name || user.email,
@@ -177,7 +242,7 @@ export async function DELETE(
       amount: -Number(assetToDelete.amount), // Negative to indicate removal
       totalPrice: -Number(assetToDelete.amount) * Number(assetToDelete.purchasePrice),
       pricePerUnit: Number(assetToDelete.purchasePrice),
-      remainingAmount: 0, // Will be calculated after deletion
+      remainingAmount: availableStock, // Correct remaining amount after deletion
       totalUserBalance: 0 // Not relevant for stock deletion
     });
 
