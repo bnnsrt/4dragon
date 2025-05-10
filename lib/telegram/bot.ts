@@ -131,7 +131,7 @@ export const sendGoldPurchaseNotification = async (data: GoldPurchaseNotificatio
       return;
     }
 
-    let message = `🏆 *New Gold Purchase!*\n\n` +
+    let message = `🏆 *Update Stock!*\n\n` +
       `👤 User: ${data.userName}\n` +
       `📦 Gold Type: ${data.goldType}\n` +
       `💰 Amount: ${data.amount.toFixed(4)} บาท (${calculateGrams(data.amount)} กรัม)\n` +
