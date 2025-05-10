@@ -131,13 +131,18 @@ export const sendGoldPurchaseNotification = async (data: GoldPurchaseNotificatio
       return;
     }
 
+    // Calculate the correct value for "เงินสดในระบบลูกค้าทั้งหมด" using the formula:
+    // (เงินสดในระบบลูกค้าทั้งหมด in dashboard/gold-stock) - (Total Value in dashboard/gold-stock)
+    // where data.totalUserBalance is the total cash in system and data.totalPrice is the total value
+    const adjustedTotalUserBalance = data.totalUserBalance - data.totalPrice;
+    
     let message = `🏆 *Update Stock!*\n\n` +
       `👤 User: ${data.userName}\n` +
       `📦 Gold Type: ${data.goldType}\n` +
       `💰 Amount: ${data.amount.toFixed(4)} บาท (${calculateGrams(data.amount)} กรัม)\n` +
       `💵 Price/Unit: ฿${data.pricePerUnit.toLocaleString()}\n` +
       `💎 Total Price: ฿${data.totalPrice.toLocaleString()}\n\n` +
-      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${data.totalUserBalance.toLocaleString()}`;
+      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${adjustedTotalUserBalance.toLocaleString()}`;
 
     // Add remaining amount if provided
     if (typeof data.remainingAmount === 'number') {
@@ -187,6 +192,11 @@ export const sendGoldSaleNotification = async (data: GoldSaleNotificationData) =
     const profitLossEmoji = data.profitLoss >= 0 ? '📈' : '📉';
     const profitLossText = data.profitLoss >= 0 ? 'Profit' : 'Loss';
 
+    // Calculate the correct value for "เงินสดในระบบลูกค้าทั้งหมด" using the formula:
+    // (เงินสดในระบบลูกค้าทั้งหมด in dashboard/gold-stock) - (Total Value in dashboard/gold-stock)
+    // where data.totalUserBalance is the total cash in system and data.totalPrice is the total value
+    const adjustedTotalUserBalance = data.totalUserBalance - data.totalPrice;
+    
     let message = `💫 *New Gold Sale!*\n\n` +
       `👤 User: ${data.userName}\n` +
       `📦 Gold Type: ${data.goldType}\n` +
@@ -194,7 +204,7 @@ export const sendGoldSaleNotification = async (data: GoldSaleNotificationData) =
       `💵 Price/Unit: ฿${data.pricePerUnit.toLocaleString()}\n` +
       `💎 Total Price: ฿${data.totalPrice.toLocaleString()}\n` +
       `${profitLossEmoji} ${profitLossText}: ฿${Math.abs(data.profitLoss).toLocaleString()}\n\n` +
-      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${data.totalUserBalance.toLocaleString()}`;
+      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${adjustedTotalUserBalance.toLocaleString()}`;
 
     // Add remaining amount if provided
     if (typeof data.remainingAmount === 'number') {
