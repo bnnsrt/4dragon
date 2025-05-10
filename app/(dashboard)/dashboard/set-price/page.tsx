@@ -145,7 +145,7 @@ export default function SetPricePage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gold_spot_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold Spot ราคาที่ลูกค้าซื้อจากร้าน (%)</Label>
+                  <Label htmlFor="gold_spot_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold Spot จากร้าน (%)</Label>
                   <Input
                     id="gold_spot_ask"
                     name="gold_spot_ask"
@@ -174,7 +174,7 @@ export default function SetPricePage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gold_9999_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold 99.99% ราคาที่ลูกค้าซื้อจากร้าน (%)</Label>
+                  <Label htmlFor="gold_9999_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold 99.99% ราคาที่ลูกค้าซื้อจากร้าน (บาท)</Label>
                   <Input
                     id="gold_9999_ask"
                     name="gold_9999_ask"
@@ -203,7 +203,7 @@ export default function SetPricePage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gold_965_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold 96.5% ราคาที่ลูกค้าซื้อจากร้าน (%)</Label>
+                  <Label htmlFor="gold_965_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold 96.5% ราคาที่ลูกค้าซื้อจากร้าน (บาท)</Label>
                   <Input
                     id="gold_965_ask"
                     name="gold_965_ask"
@@ -232,7 +232,7 @@ export default function SetPricePage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gold_association_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold Association ราคาที่ลูกค้าซื้อจากร้าน (%)</Label>
+                  <Label htmlFor="gold_association_ask" className={theme === 'dark' ? 'text-white' : ''}>Gold Association ราคาที่ลูกค้าซื้อจากร้าน (บาท)</Label>
                   <Input
                     id="gold_association_ask"
                     name="gold_association_ask"
