@@ -487,8 +487,8 @@ export function GoldPrices() {
               <Label className={theme === 'dark' ? 'text-white' : ''}>บัญชีธนาคาร</Label>
               <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-gray-50'}`}>
                 <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>ธนาคารกสิกรไทย</p>
-                <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>ชื่อบัญชี: นายบรรณศาสตร์ วงษ์วิจิตสุข</p>
-                <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>เลขที่บัญชี: 192-2-95245-7</p>
+                <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>ชื่อบัญชี: บจก. ห้างทองมังกรทองบุรีรัมย์</p>
+                <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>เลขที่บัญชี: 203-364-1497</p>
               </div>
             </div>
             

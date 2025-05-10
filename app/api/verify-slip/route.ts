@@ -11,10 +11,10 @@ const API_KEY = process.env.EASYSLIP_API_KEY;
 // Expected receiver details
 const EXPECTED_RECEIVER = {
   name: {
-    th: "นาย บรรณศาสตร์ ว",
-    en: "MR. BANNASART W"
+    th: "บจก. ห้างทองมังกรทองบุรีรัมย์",
+    en: "HANGTONGMANGKORNTONG B"
   },
-  account: "XXX-X-XX245-7",
+  account: "XXX-X-XX149-7",
   type: "BANKAC"
 };
 
