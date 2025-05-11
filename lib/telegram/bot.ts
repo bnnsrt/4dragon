@@ -130,19 +130,14 @@ export const sendGoldPurchaseNotification = async (data: GoldPurchaseNotificatio
       console.error('Bot does not have access to the chat. Please add the bot to the group/channel first.');
       return;
     }
-
-    // Calculate the correct value for "เงินสดในระบบลูกค้าทั้งหมด" using the formula:
-    // (เงินสดในระบบลูกค้าทั้งหมด in dashboard/gold-stock) - (Total Value in dashboard/gold-stock)
-    // where data.totalUserBalance is the total cash in system and data.totalPrice is the total value
-    const adjustedTotalUserBalance = data.totalUserBalance - data.totalPrice;
     
     let message = `🏆 *Update Stock!*\n\n` +
       `👤 User: ${data.userName}\n` +
       `📦 Gold Type: ${data.goldType}\n` +
-      `💰 Amount: ${data.amount.toFixed(4)} บาท (${calculateGrams(data.amount)} กรัม)\n` +
+      `💰 Amount: ${Math.abs(data.amount).toFixed(4)} บาท (${calculateGrams(Math.abs(data.amount))} กรัม)\n` +
       `💵 Price/Unit: ฿${data.pricePerUnit.toLocaleString()}\n` +
-      `💎 Total Price: ฿${data.totalPrice.toLocaleString()}\n\n` +
-      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${adjustedTotalUserBalance.toLocaleString()}`;
+      `💎 Total Price: ฿${Math.abs(data.totalPrice).toLocaleString()}\n\n` +
+      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${Math.abs(data.totalUserBalance).toLocaleString()}`;
 
     // Add remaining amount if provided
     if (typeof data.remainingAmount === 'number') {

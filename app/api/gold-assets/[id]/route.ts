@@ -154,7 +154,7 @@ export async function PUT(request: NextRequest) {
       totalPrice: Number(amount) * Number(purchasePrice),
       pricePerUnit: Number(purchasePrice),
       remainingAmount: availableStock,
-      totalUserBalance: Number(totalUserBalance.total || 0)
+      totalUserBalance: -1 * (Number(amount) * Number(purchasePrice)) // Negative of total price for updates
     });
 
     return NextResponse.json({ success: true, asset: updatedAsset });
@@ -258,7 +258,7 @@ export async function DELETE(request: NextRequest) {
       totalPrice: -Number(assetToDelete.amount) * Number(assetToDelete.purchasePrice),
       pricePerUnit: Number(assetToDelete.purchasePrice),
       remainingAmount: availableStock, // Correct remaining amount after deletion
-      totalUserBalance: Number(totalUserBalance.total || 0)
+      totalUserBalance: 0 // Set to 0 when deleting stock
     });
 
     return NextResponse.json({ success: true });

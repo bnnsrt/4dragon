@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       totalPrice: Number(amount) * Number(purchasePrice),
       pricePerUnit: Number(purchasePrice),
       remainingAmount: availableStock,
-      totalUserBalance: Number(totalUserBalance.total || 0)
+      totalUserBalance: -1 * (Number(amount) * Number(purchasePrice)) // Negative of total price for adding stock
     });
 
     return NextResponse.json({ success: true, asset: newAsset });
