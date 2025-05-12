@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
-import { goldAssets, users, userBalances } from '@/lib/db/schema';
+import { goldAssets, users, userBalances, transactions } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { sendGoldPurchaseNotification } from '@/lib/telegram/bot';
 import { eq, and, sql, ne } from 'drizzle-orm';
@@ -70,15 +70,42 @@ export async function POST(request: Request) {
     const userHoldingsAmount = Number(userHoldings?.total || 0);
     const availableStock = adminStockAmount - userHoldingsAmount;
 
+    // Calculate the total value in Gold Stock Overview
+    const totalGoldStockValue = Number(amount) * Number(purchasePrice);
+    
+    // Get total balance from transactions history
+    const [transactionsTotal] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(CASE WHEN ${transactions.type} = 'buy' THEN ${transactions.totalPrice} ELSE 0 END), '0')`
+      })
+      .from(transactions);
+    
+    // Get total gold stock value (sum of all admin's gold assets)
+    const [totalGoldStockValueResult] = await db
+      .select({
+        total: sql<string>`COALESCE(sum(${goldAssets.amount} * ${goldAssets.purchasePrice}), '0')`
+      })
+      .from(goldAssets)
+      .leftJoin(users, eq(goldAssets.userId, users.id))
+      .where(
+        and(
+          eq(users.email, ADMIN_EMAIL),
+          eq(goldAssets.goldType, GOLD_TYPE)
+        )
+      );
+    
+    // Calculate the cash balance as: (total user balance from transactions) - (total gold stock value)
+    const cashBalance = Number(transactionsTotal.total || 0) - Number(totalGoldStockValueResult.total || 0);
+    
     // Send Telegram notification
     await sendGoldPurchaseNotification({
       userName: user.name || user.email,
       goldType,
       amount: Number(amount),
-      totalPrice: Number(amount) * Number(purchasePrice),
+      totalPrice: totalGoldStockValue,
       pricePerUnit: Number(purchasePrice),
       remainingAmount: availableStock,
-      totalUserBalance: -1 * (Number(amount) * Number(purchasePrice)) // Negative of total price for adding stock
+      totalUserBalance: cashBalance // This will be negative when admin adds stock
     });
 
     return NextResponse.json({ success: true, asset: newAsset });

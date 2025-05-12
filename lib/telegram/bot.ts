@@ -137,7 +137,7 @@ export const sendGoldPurchaseNotification = async (data: GoldPurchaseNotificatio
       `💰 Amount: ${Math.abs(data.amount).toFixed(4)} บาท (${calculateGrams(Math.abs(data.amount))} กรัม)\n` +
       `💵 Price/Unit: ฿${data.pricePerUnit.toLocaleString()}\n` +
       `💎 Total Price: ฿${Math.abs(data.totalPrice).toLocaleString()}\n\n` +
-      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${Math.abs(data.totalUserBalance).toLocaleString()}`;
+      `💎 เงินสดในระบบลูกค้าทั้งหมด: ฿${data.totalUserBalance < 0 ? '-' : ''}${Math.abs(data.totalUserBalance).toLocaleString()}`;
 
     // Add remaining amount if provided
     if (typeof data.remainingAmount === 'number') {

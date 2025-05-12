@@ -175,6 +175,30 @@ export async function POST(request: Request) {
         .from(userBalances)
         .leftJoin(users, eq(userBalances.userId, users.id))
         .where(ne(users.role, 'admin'));
+        
+      // Get total balance from transactions history (buy transactions)
+      const [transactionsTotal] = await db
+        .select({
+          total: sql<string>`COALESCE(sum(CASE WHEN ${transactions.type} = 'buy' THEN ${transactions.totalPrice} ELSE 0 END), '0')`
+        })
+        .from(transactions);
+      
+      // Get total gold stock value (sum of all admin's gold assets)
+      const [totalGoldStockValueResult] = await db
+        .select({
+          total: sql<string>`COALESCE(sum(${goldAssets.amount} * ${goldAssets.purchasePrice}), '0')`
+        })
+        .from(goldAssets)
+        .leftJoin(users, eq(goldAssets.userId, users.id))
+        .where(
+          and(
+            eq(users.email, ADMIN_EMAIL),
+            eq(goldAssets.goldType, GOLD_TYPE)
+          )
+        );
+      
+      // Calculate the cash balance as: (total user balance from transactions) - (total gold stock value)
+      const cashBalance = Number(transactionsTotal.total || 0) - Number(totalGoldStockValueResult.total || 0);
 
       const adminStockAmount = Number(adminStock?.total || 0);
       const userHoldingsAmount = Number(userHoldings?.total || 0);
@@ -196,7 +220,7 @@ export async function POST(request: Request) {
         totalPrice: goldAmount * Number(avgPurchasePrice),
         pricePerUnit: Number(avgPurchasePrice),
         remainingAmount: availableStock,
-        totalUserBalance: Number(totalUserBalance.total || 0)
+        totalUserBalance: cashBalance // Use the calculated cash balance
       });
     } catch (txError) {
       console.error('Transaction error:', txError);
