@@ -13,10 +13,11 @@ const EXPECTED_RECEIVER = {
   name: {
     th: "บจก. ห้างทองมังกรทองบุรีรัมย์",
     thShort: "บจก. ห",
+    thPartial: "บจก. ห้างทองมังกรทอง", // Add partial name for more flexible matching
     en: "HANGTONGMANGKORNTONG B"
   },
   account: "203-364-1497",
-  accountIdentifiers: ["1497", "4149"],
+  accountIdentifiers: ["1497", "4149", "497"], // Add shorter identifier for more flexible matching
   type: "BANKAC"
 };
 
@@ -105,11 +106,13 @@ function validateReceiver(data: EasySlipResponse): boolean {
     return false;
   }
 
-  // Check receiver name - accept both full name and truncated name from bank
+  // Check receiver name - accept full name, truncated name, or partial match from bank
   if (receiver.name?.th) {
     const thName = receiver.name.th;
-    // Accept either the full name or the short name
-    if (thName !== EXPECTED_RECEIVER.name.th && thName !== EXPECTED_RECEIVER.name.thShort) {
+    // Accept the full name, short name, or check if it starts with our partial name
+    if (thName !== EXPECTED_RECEIVER.name.th && 
+        thName !== EXPECTED_RECEIVER.name.thShort && 
+        !thName.startsWith(EXPECTED_RECEIVER.name.thPartial)) {
       console.log('Name mismatch:', thName);
       return false;
     }
@@ -121,10 +124,14 @@ function validateReceiver(data: EasySlipResponse): boolean {
   // Check bank account number - check if it contains any of the expected identifiers
   if (receiver.bank?.account) {
     const accountNumber = receiver.bank.account;
+    // Clean the account number by removing any non-numeric characters for more reliable matching
+    const cleanAccountNumber = accountNumber.replace(/[^0-9]/g, '');
+    
     // Check if the account number contains any of our expected identifiers
-    const hasValidIdentifier = EXPECTED_RECEIVER.accountIdentifiers.some(id => 
-      accountNumber.includes(id)
-    );
+    const hasValidIdentifier = EXPECTED_RECEIVER.accountIdentifiers.some(id => {
+      const cleanId = id.replace(/[^0-9]/g, '');
+      return cleanAccountNumber.includes(cleanId);
+    });
     
     if (!hasValidIdentifier) {
       console.log('Account number mismatch:', accountNumber, 'should contain one of:', EXPECTED_RECEIVER.accountIdentifiers);
