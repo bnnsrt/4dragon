@@ -17,7 +17,7 @@ const EXPECTED_RECEIVER = {
     en: "HANGTONGMANGKORNTONG B"
   },
   account: "203-364-1497",
-  accountIdentifiers: ["1497", "4149", "497"], // Add shorter identifier for more flexible matching
+  accountIdentifiers: ["1497", "4149", "497","2033"], // Add shorter identifier for more flexible matching
   type: "BANKAC"
 };
 
