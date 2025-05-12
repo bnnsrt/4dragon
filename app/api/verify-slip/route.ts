@@ -12,9 +12,11 @@ const API_KEY = process.env.EASYSLIP_API_KEY;
 const EXPECTED_RECEIVER = {
   name: {
     th: "บจก. ห้างทองมังกรทองบุรีรัมย์",
+    thShort: "บจก. ห",
     en: "HANGTONGMANGKORNTONG B"
   },
-  account: "XXX-X-XX149-7",
+  account: "203-364-1497",
+  accountIdentifiers: ["1497", "4149"],
   type: "BANKAC"
 };
 
@@ -90,23 +92,50 @@ type EasySlipResponse = {
 
 function validateReceiver(data: EasySlipResponse): boolean {
   if (!data.data?.receiver?.account) {
+    console.log('No receiver account data found');
     return false;
   }
 
   const receiver = data.data.receiver.account;
+  console.log('Validating receiver:', JSON.stringify(receiver, null, 2));
 
-  // Check receiver name (both Thai and English)
-  if (receiver.name?.th !== EXPECTED_RECEIVER.name.th || 
-      receiver.name?.en !== EXPECTED_RECEIVER.name.en) {
+  // Check bank account type
+  if (receiver.bank?.type !== EXPECTED_RECEIVER.type) {
+    console.log('Account type mismatch:', receiver.bank?.type, 'vs expected:', EXPECTED_RECEIVER.type);
     return false;
   }
 
-  // Check bank account type and number
-  if (receiver.bank?.type !== EXPECTED_RECEIVER.type || 
-      receiver.bank?.account !== EXPECTED_RECEIVER.account) {
+  // Check receiver name - accept both full name and truncated name from bank
+  if (receiver.name?.th) {
+    const thName = receiver.name.th;
+    // Accept either the full name or the short name
+    if (thName !== EXPECTED_RECEIVER.name.th && thName !== EXPECTED_RECEIVER.name.thShort) {
+      console.log('Name mismatch:', thName);
+      return false;
+    }
+  } else {
+    console.log('No Thai name provided');
     return false;
   }
 
+  // Check bank account number - check if it contains any of the expected identifiers
+  if (receiver.bank?.account) {
+    const accountNumber = receiver.bank.account;
+    // Check if the account number contains any of our expected identifiers
+    const hasValidIdentifier = EXPECTED_RECEIVER.accountIdentifiers.some(id => 
+      accountNumber.includes(id)
+    );
+    
+    if (!hasValidIdentifier) {
+      console.log('Account number mismatch:', accountNumber, 'should contain one of:', EXPECTED_RECEIVER.accountIdentifiers);
+      return false;
+    }
+  } else {
+    console.log('No account number provided');
+    return false;
+  }
+
+  console.log('Receiver validation passed');
   return true;
 }
 
