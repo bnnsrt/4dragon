@@ -14,7 +14,8 @@ const EXPECTED_RECEIVER = {
     th: "บจก. ห้างทองมังกรทองบุรีรัมย์",
     thShort: "บจก. ห",
     thPartial: "บจก. ห้างทองมังกรทอง", // Add partial name for more flexible matching
-    en: "HANGTONGMANGKORNTONG B"
+    en: "HANGTONGMANGKORNTONG B",
+    enPartial: "HANGTONGMANGKORNTONG" // Add partial English name for more flexible matching
   },
   account: "203-364-1497",
   accountIdentifiers: ["1497", "4149", "497","2033"], // Add shorter identifier for more flexible matching
@@ -107,17 +108,46 @@ function validateReceiver(data: EasySlipResponse): boolean {
   }
 
   // Check receiver name - accept full name, truncated name, or partial match from bank
+  // First try to validate Thai name if available
   if (receiver.name?.th) {
     const thName = receiver.name.th;
     // Accept the full name, short name, or check if it starts with our partial name
     if (thName !== EXPECTED_RECEIVER.name.th && 
         thName !== EXPECTED_RECEIVER.name.thShort && 
         !thName.startsWith(EXPECTED_RECEIVER.name.thPartial)) {
-      console.log('Name mismatch:', thName);
+      console.log('Thai name mismatch:', thName);
+      
+      // If Thai name doesn't match, try English name as fallback
+      if (receiver.name?.en) {
+        const enName = receiver.name.en;
+        // Accept the full English name or check if it starts with our partial English name
+        if (enName === EXPECTED_RECEIVER.name.en || 
+            enName.startsWith(EXPECTED_RECEIVER.name.enPartial)) {
+          console.log('English name match:', enName);
+          // English name matched, so we can proceed
+        } else {
+          console.log('English name mismatch:', enName);
+          return false;
+        }
+      } else {
+        // No English name to fall back on
+        return false;
+      }
+    }
+  } 
+  // If no Thai name, try English name
+  else if (receiver.name?.en) {
+    const enName = receiver.name.en;
+    // Accept the full English name or check if it starts with our partial English name
+    if (enName !== EXPECTED_RECEIVER.name.en && 
+        !enName.startsWith(EXPECTED_RECEIVER.name.enPartial)) {
+      console.log('English name mismatch:', enName);
       return false;
     }
-  } else {
-    console.log('No Thai name provided');
+  } 
+  // No name provided at all
+  else {
+    console.log('No name provided (neither Thai nor English)');
     return false;
   }
 
@@ -297,7 +327,7 @@ export async function POST(request: Request) {
         { 
           status: 400, 
           message: 'invalid_receiver',
-          details: 'Transfer must be to นายบรรณศาสตร์  account only'
+          details: 'Transfer must be to บจก. ห้างทองมังกรทองบุรีรัมย์ account only'
         },
         { status: 400 }
       );
