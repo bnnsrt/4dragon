@@ -334,7 +334,7 @@ export default function GoldStockPage() {
             className="bg-blue-500 hover:bg-blue-600 text-white"
           >
             <Exchange className="mr-2 h-4 w-4" />
-            ตัด Stock แลกทองลูกค้า
+            ตัด Stock ลูกค้าขายทอง
           </Button>
           <Button 
             onClick={() => setIsAddDialogOpen(true)}
@@ -638,7 +638,7 @@ export default function GoldStockPage() {
         <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
           <DialogHeader>
             <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
-              ตัด Stock แลกทองลูกค้า
+              ตัด Stock ลูกค้าขายทอง
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleExchangeSubmit} className="space-y-4">
