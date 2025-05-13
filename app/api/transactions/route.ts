@@ -280,14 +280,29 @@ export async function POST(request: Request) {
         const userHoldingsAmount = Number(userHoldings?.total || 0);
         const availableStock = adminStockAmount - userHoldingsAmount;
 
-        // Get total balance across all users AFTER the transaction
-        const [totalUserBalance] = await tx
+        // Get total balance from transactions history (buy transactions)
+        const [transactionsTotal] = await tx
           .select({
-            total: sql<string>`COALESCE(sum(${userBalances.balance}), '0')`
+            total: sql<string>`COALESCE(sum(CASE WHEN ${transactions.type} = 'buy' THEN ${transactions.totalPrice} ELSE 0 END), '0')`
           })
-          .from(userBalances)
-          .where(ne(users.role, 'admin'))
-          .leftJoin(users, eq(userBalances.userId, users.id));
+          .from(transactions);
+
+        // Get total gold stock value (sum of all admin's gold assets)
+        const [totalGoldStockValueResult] = await tx
+          .select({
+            total: sql<string>`COALESCE(sum(${goldAssets.amount} * ${goldAssets.purchasePrice}), '0')`
+          })
+          .from(goldAssets)
+          .leftJoin(users, eq(goldAssets.userId, users.id))
+          .where(
+            and(
+              eq(users.email, ADMIN_EMAIL),
+              eq(goldAssets.goldType, GOLD_TYPE)
+            )
+          );
+
+        // Calculate the cash balance as shown in the dashboard: sum of buy transactions
+        const cashBalance = Number(transactionsTotal.total || 0);
 
         // Send Telegram notification with correct remaining amount and total balance
         await Promise.allSettled([
@@ -298,7 +313,8 @@ export async function POST(request: Request) {
             totalPrice: Number(totalPrice),
             pricePerUnit: Number(pricePerUnit),
             remainingAmount: availableStock,
-            totalUserBalance: Number(totalUserBalance.total)
+            totalUserBalance: cashBalance,
+            totalGoldStockValue: Number(totalGoldStockValueResult.total || 0)
           })
         ]);
 
