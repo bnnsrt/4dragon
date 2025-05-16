@@ -267,9 +267,23 @@ export function GoldPrices() {
         throw new Error(errorData.message || 'Failed to verify slip');
       }
 
-      // If slip is verified, proceed with the purchase
+      // Get the verified slip data
+      const verifiedSlipData = await verifyResponse.json();
+      
+      // Get the amount from the slip
+      const slipAmount = verifiedSlipData.data?.amount?.amount;
+      
+      // Get the amount entered by the user
       const totalPrice = parseFloat(moneyAmount);
       
+      // Check if the amounts match
+      if (slipAmount && Math.abs(slipAmount - totalPrice) > 0.01) { // Using a small tolerance for floating point comparison
+        toast.error('จำนวนเงินไม่ตรงกรุณาติดต่อเเอดมิน');
+        setIsSlipVerifying(false);
+        return;
+      }
+      
+      // If slip is verified and amounts match, proceed with the purchase
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

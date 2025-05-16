@@ -379,7 +379,12 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ status: 200, message: 'success' });
+    // Return success with the slip data so the frontend can access the amount
+    return NextResponse.json({ 
+      status: 200, 
+      message: 'success',
+      data: data.data // Include the slip data in the response
+    });
   } catch (error) {
     console.error('Error verifying slip:', error);
     return NextResponse.json(
