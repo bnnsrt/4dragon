@@ -65,6 +65,7 @@ export default function GoldStockPage() {
   const [isExchangeDialogOpen, setIsExchangeDialogOpen] = useState(false);
   const [isJewelryExchangeDialogOpen, setIsJewelryExchangeDialogOpen] = useState(false);
   const [isEditJewelryDialogOpen, setIsEditJewelryDialogOpen] = useState(false);
+  const [isAddToUserDialogOpen, setIsAddToUserDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<GoldAsset | null>(null);
   const [selectedJewelryTransaction, setSelectedJewelryTransaction] = useState<Transaction | null>(null);
@@ -95,6 +96,13 @@ export default function GoldStockPage() {
     goldType: 'ทองสมาคม 96.5%',
     grams: '',
     jewelryName: '',
+  });
+  
+  const [addToUserFormData, setAddToUserFormData] = useState({
+    customerId: '',
+    goldType: 'ทองสมาคม 96.5%',
+    purchaseAmount: '',
+    goldPrice: '',
   });
   const [totalUserBalance, setTotalUserBalance] = useState(0);
   const [minPurchaseAmount, setMinPurchaseAmount] = useState(0);
@@ -578,6 +586,54 @@ export default function GoldStockPage() {
       setIsProcessing(false);
     }
   }
+  
+  async function handleAddToUserSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setIsProcessing(true);
+
+    try {
+      // Calculate gold amount in baht
+      const goldAmount = Number(addToUserFormData.purchaseAmount) / Number(addToUserFormData.goldPrice);
+      
+      const response = await fetch('/api/management/gold-stock/add-to-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: addToUserFormData.customerId,
+          goldType: addToUserFormData.goldType,
+          amount: goldAmount.toString(),
+          goldPrice: addToUserFormData.goldPrice,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to add gold to user');
+      }
+
+      toast.success('Gold added to user successfully');
+      setIsAddToUserDialogOpen(false);
+      setAddToUserFormData({
+        customerId: '',
+        goldType: 'ทองสมาคม 96.5%',
+        purchaseAmount: '',
+        goldPrice: '',
+      });
+      
+      // Refresh all data
+      fetchGoldAssets();
+      fetchCustomers();
+      fetchTotalUserBalance();
+      fetchTransactionHistory();
+    } catch (error) {
+      console.error('Error adding gold to user:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to add gold to user');
+    } finally {
+      setIsProcessing(false);
+    }
+  }
 
   // Calculate totals from admin's assets only
   const totalGoldStock = goldAssets.reduce((total, asset) => total + Number(asset.amount), 0);
@@ -644,6 +700,14 @@ export default function GoldStockPage() {
           >
             <Exchange className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
             <span className="whitespace-nowrap">ตัด Stock ลูกค้าขายทอง</span>
+          </Button>
+          <Button 
+            onClick={() => setIsAddToUserDialogOpen(true)}
+            className="bg-green-500 hover:bg-green-600 text-white text-xs sm:text-sm"
+            size="sm"
+          >
+            <Plus className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="whitespace-nowrap">เพิ่มทอง</span>
           </Button>
           <Button 
             onClick={() => setIsAddDialogOpen(true)}
@@ -1352,6 +1416,111 @@ export default function GoldStockPage() {
                 </>
               ) : (
                 'บันทึกการแก้ไข'
+              )}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Gold to User Dialog */}
+      <Dialog open={isAddToUserDialogOpen} onOpenChange={setIsAddToUserDialogOpen}>
+        <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
+          <DialogHeader>
+            <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
+              เพิ่มทองให้ลูกค้า
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddToUserSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="addToUserCustomerId" className={theme === 'dark' ? 'text-white' : ''}>เลือกลูกค้า</Label>
+              <Select
+                value={addToUserFormData.customerId}
+                onValueChange={(value) => setAddToUserFormData(prev => ({ ...prev, customerId: value }))}
+              >
+                <SelectTrigger className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}>
+                  <SelectValue placeholder="เลือกลูกค้า" />
+                </SelectTrigger>
+                <SelectContent className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}>
+                  {customers.map((customer) => (
+                    <SelectItem 
+                      key={customer.id} 
+                      value={customer.id.toString()}
+                      className={theme === 'dark' ? 'text-white focus:bg-[#252525]' : ''}
+                    >
+                      {customer.name || customer.email} - {Number(customer.totalGold || 0).toFixed(4)} บาท ({calculateGrams(Number(customer.totalGold || 0))} กรัม)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="goldType" className={theme === 'dark' ? 'text-white' : ''}>ประเภททอง</Label>
+              <Input
+                id="goldType"
+                value={addToUserFormData.goldType}
+                disabled
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="purchaseAmount" className={theme === 'dark' ? 'text-white' : ''}>จำนวนเงินที่ต้องการซื้อ (บาท)</Label>
+              <Input
+                id="purchaseAmount"
+                type="number"
+                step="0.01"
+                value={addToUserFormData.purchaseAmount}
+                onChange={(e) => setAddToUserFormData(prev => ({ ...prev, purchaseAmount: e.target.value }))}
+                placeholder="ระบุจำนวนเงิน"
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="goldPrice" className={theme === 'dark' ? 'text-white' : ''}>ราคาทอง (บาท/บาท)</Label>
+              <Input
+                id="goldPrice"
+                type="number"
+                step="0.01"
+                value={addToUserFormData.goldPrice}
+                onChange={(e) => setAddToUserFormData(prev => ({ ...prev, goldPrice: e.target.value }))}
+                placeholder="ระบุราคาทอง"
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+                required
+              />
+            </div>
+
+            {/* Summary section */}
+            {addToUserFormData.purchaseAmount && addToUserFormData.goldPrice && Number(addToUserFormData.purchaseAmount) > 0 && Number(addToUserFormData.goldPrice) > 0 && (
+              <div className={`p-4 rounded-lg ${theme === 'dark' ? 'bg-[#1a1a1a] border border-[#2A2A2A]' : 'bg-gray-50 border border-gray-200'}`}>
+                <h3 className={`text-sm font-medium mb-2 ${theme === 'dark' ? 'text-white' : ''}`}>สรุปรายการ</h3>
+                <div className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <p>จำนวนเงินที่ต้องการซื้อ: ฿{Number(addToUserFormData.purchaseAmount).toLocaleString()}</p>
+                  <p>ราคาทอง: ฿{Number(addToUserFormData.goldPrice).toLocaleString()}/บาท</p>
+                  <p className="mt-2 font-medium text-green-500">
+                    ทองที่ได้รับ: {(Number(addToUserFormData.purchaseAmount) / Number(addToUserFormData.goldPrice)).toFixed(4)} บาท
+                  </p>
+                  <p className="text-green-500">
+                    ({calculateGrams(Number(addToUserFormData.purchaseAmount) / Number(addToUserFormData.goldPrice))} กรัม)
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full bg-green-500 hover:bg-green-600 text-white"
+              disabled={isProcessing || !addToUserFormData.customerId || !addToUserFormData.purchaseAmount || !addToUserFormData.goldPrice}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังดำเนินการ...
+                </>
+              ) : (
+                'ยืนยันการเพิ่มทอง'
               )}
             </Button>
           </form>
