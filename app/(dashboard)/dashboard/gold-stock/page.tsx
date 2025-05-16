@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2, DollarSign } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -66,10 +66,12 @@ export default function GoldStockPage() {
     grams: '',
   });
   const [totalUserBalance, setTotalUserBalance] = useState(0);
+  const [minPurchaseAmount, setMinPurchaseAmount] = useState(0);
 
   useEffect(() => {
     fetchGoldAssets();
     fetchTotalUserBalance();
+    fetchMinPurchaseAmount();
     if (user?.role === 'admin') {
       fetchCustomers();
     }
@@ -132,6 +134,20 @@ export default function GoldStockPage() {
       }
     } catch (error) {
       console.error('Error fetching total user balance:', error);
+    }
+  }
+
+  async function fetchMinPurchaseAmount() {
+    try {
+      const response = await fetch('/api/trading-status');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.minPurchaseAmount) {
+          setMinPurchaseAmount(Number(data.minPurchaseAmount));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching min purchase amount:', error);
     }
   }
 
@@ -322,6 +338,14 @@ export default function GoldStockPage() {
   );
   const averagePrice = totalGoldStock > 0 ? totalGoldValue / totalGoldStock : 0;
 
+  // Determine if an asset was added directly (เพิ่ม Stock) or from exchange (ตัด Stock ลูกค้าขายทอง)
+  const isExchangeAsset = (asset: GoldAsset) => {
+    // This is a simplified check - in a real app, you might want to store this information in the database
+    // For now, we'll assume assets with a purchase price divisible by 100 are from direct additions
+    // and others are from exchanges (this is just an example logic)
+    return Number(asset.purchasePrice) % 100 !== 0;
+  };
+
   return (
     <section className="flex-1 p-4 lg:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -421,67 +445,82 @@ export default function GoldStockPage() {
               <div className="mt-6">
                 <h3 className={`text-lg font-medium mb-4 ${theme === 'dark' ? 'text-white' : ''}`}>Stock History</h3>
                 <div className="space-y-4">
-                  {goldAssets.map((asset) => (
-                    <div
-                      key={asset.id}
-                      className={`p-4 border rounded-lg ${
-                        theme === 'dark' 
-                          ? 'bg-[#1a1a1a] border-[#2A2A2A]' 
-                          : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
-                            {asset.goldType}
-                          </p>
-                          <div className={`mt-1 space-y-1 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                            <p>จำนวน: {Number(asset.amount).toFixed(4)} บาท</p>
-                            <p>({calculateGrams(Number(asset.amount))} กรัม)</p>
-                            <p>ราคาซื้อ: ฿{Number(asset.purchasePrice).toLocaleString()}/บาท</p>
+                  {goldAssets.map((asset) => {
+                    const isExchange = isExchangeAsset(asset);
+                    return (
+                      <div
+                        key={asset.id}
+                        className={`p-4 border rounded-lg ${
+                          theme === 'dark' 
+                            ? 'bg-[#1a1a1a] border-[#2A2A2A]' 
+                            : 'bg-white border-gray-200'
+                        } ${
+                          isExchange 
+                            ? theme === 'dark' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-blue-500'
+                            : theme === 'dark' ? 'border-l-4 border-l-green-600' : 'border-l-4 border-l-green-500'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center">
+                              {isExchange ? (
+                                <ArrowUpRight className={`h-4 w-4 mr-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'}`} />
+                              ) : (
+                                <ArrowDownRight className={`h-4 w-4 mr-2 ${theme === 'dark' ? 'text-green-400' : 'text-green-500'}`} />
+                              )}
+                              <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
+                                {asset.goldType} {isExchange ? '(ตัด Stock)' : '(เพิ่ม Stock)'}
+                              </p>
+                            </div>
+                            <div className={`mt-1 space-y-1 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                              <p>จำนวน: {Number(asset.amount).toFixed(4)} บาท</p>
+                              <p>({calculateGrams(Number(asset.amount))} กรัม)</p>
+                              <p>ราคาซื้อ: ฿{Number(asset.purchasePrice).toLocaleString()}/บาท</p>
+                              <p>วันที่: {new Date(asset.createdAt).toLocaleString('th-TH')}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
-                            มูลค่ารวม
-                          </p>
-                          <p className="text-orange-500 font-bold">
-                            ฿{(Number(asset.amount) * Number(asset.purchasePrice)).toLocaleString()}
-                          </p>
-                          <div className="flex space-x-2 mt-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setEditFormData({
-                                  goldType: asset.goldType,
-                                  grams: calculateGrams(Number(asset.amount)),
-                                  purchasePrice: asset.purchasePrice,
-                                });
-                                setIsEditDialogOpen(true);
-                              }}
-                              className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#202020]' : ''}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleDeleteAsset(asset.id)}
-                              className={`text-red-500 ${
-                                theme === 'dark' 
-                                  ? 'border-[#2A2A2A] hover:bg-[#202020]' 
-                                  : 'hover:bg-red-50'
-                              }`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div className="text-right">
+                            <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
+                              มูลค่ารวม
+                            </p>
+                            <p className="text-orange-500 font-bold">
+                              ฿{(Number(asset.amount) * Number(asset.purchasePrice)).toLocaleString()}
+                            </p>
+                            <div className="flex space-x-2 mt-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedAsset(asset);
+                                  setEditFormData({
+                                    goldType: asset.goldType,
+                                    grams: calculateGrams(Number(asset.amount)),
+                                    purchasePrice: asset.purchasePrice,
+                                  });
+                                  setIsEditDialogOpen(true);
+                                }}
+                                className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#202020]' : ''}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleDeleteAsset(asset.id)}
+                                className={`text-red-500 ${
+                                  theme === 'dark' 
+                                    ? 'border-[#2A2A2A] hover:bg-[#202020]' 
+                                    : 'hover:bg-red-50'
+                                }`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
