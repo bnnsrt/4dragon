@@ -1,12 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { transactions, users, goldAssets } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { eq, and } from 'drizzle-orm';
 import { pusherServer } from '@/lib/pusher';
 
-export async function POST(request: Request, context: { params: { id: string } }) {
-  const { params } = context;
+export async function POST(request: NextRequest) {
+  // Extract ID from URL path
+  const id = request.url.split('/').slice(-2)[0];
   try {
     const currentUser = await getUser();
     
@@ -17,7 +18,7 @@ export async function POST(request: Request, context: { params: { id: string } }
       );
     }
 
-    const transactionId = parseInt(params.id);
+    const transactionId = parseInt(id);
     
     if (isNaN(transactionId)) {
       return NextResponse.json(
