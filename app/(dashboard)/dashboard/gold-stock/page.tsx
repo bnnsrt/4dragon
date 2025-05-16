@@ -423,31 +423,34 @@ export default function GoldStockPage() {
 
   return (
     <section className="flex-1 p-4 lg:p-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 className={`text-lg lg:text-2xl font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
           จัดการ Stock ทอง
         </h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button 
             onClick={() => setIsJewelryExchangeDialogOpen(true)}
-            className="bg-purple-500 hover:bg-purple-600 text-white"
+            className="bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm"
+            size="sm"
           >
-            <Gem className="mr-2 h-4 w-4" />
-            ตัด Stock ลูกค้าเเลกทองรูปพรรณ
+            <Gem className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="whitespace-nowrap">ตัด Stock ลูกค้าเเลกทองรูปพรรณ</span>
           </Button>
           <Button 
             onClick={() => setIsExchangeDialogOpen(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white"
+            className="bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm"
+            size="sm"
           >
-            <Exchange className="mr-2 h-4 w-4" />
-            ตัด Stock ลูกค้าขายทอง
+            <Exchange className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="whitespace-nowrap">ตัด Stock ลูกค้าขายทอง</span>
           </Button>
           <Button 
             onClick={() => setIsAddDialogOpen(true)}
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm"
+            size="sm"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            เพิ่ม Stock
+            <Plus className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="whitespace-nowrap">เพิ่ม Stock</span>
           </Button>
         </div>
       </div>
@@ -485,7 +488,7 @@ export default function GoldStockPage() {
             </div>
           ) : goldAssets.length > 0 ? (
             <div className="space-y-4">
-              <div className={`p-6 border rounded-lg ${
+              <div className={`p-4 sm:p-6 border rounded-lg ${
                 theme === 'dark' 
                   ? 'bg-[#1a1a1a] border-[#2A2A2A]' 
                   : 'bg-white border-gray-200'
@@ -495,7 +498,7 @@ export default function GoldStockPage() {
                     <h3 className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                       Total Gold Stock
                     </h3>
-                    <p className={`text-2xl font-bold mt-2 ${theme === 'dark' ? 'text-white' : ''}`}>
+                    <p className={`text-xl sm:text-2xl font-bold mt-2 ${theme === 'dark' ? 'text-white' : ''}`}>
                       {totalGoldStock.toFixed(4)} บาท
                     </p>
                     <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -507,7 +510,7 @@ export default function GoldStockPage() {
                     <h3 className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                       Total Value
                     </h3>
-                    <p className={`text-2xl font-bold mt-2 text-orange-500`}>
+                    <p className={`text-xl sm:text-2xl font-bold mt-2 text-orange-500`}>
                       ฿{totalGoldValue.toLocaleString()}
                     </p>
                   </div>
@@ -516,7 +519,7 @@ export default function GoldStockPage() {
                     <h3 className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                       Average Price
                     </h3>
-                    <p className={`text-2xl font-bold mt-2 ${theme === 'dark' ? 'text-white' : ''}`}>
+                    <p className={`text-xl sm:text-2xl font-bold mt-2 ${theme === 'dark' ? 'text-white' : ''}`}>
                       ฿{averagePrice.toLocaleString()}
                     </p>
                   </div>
@@ -542,7 +545,7 @@ export default function GoldStockPage() {
                             : theme === 'dark' ? 'border-l-4 border-l-green-600' : 'border-l-4 border-l-green-500'
                         }`}
                       >
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col sm:flex-row justify-between items-start">
                           <div>
                             <div className="flex items-center">
                               {isExchange ? (
@@ -561,7 +564,7 @@ export default function GoldStockPage() {
                               <p>วันที่: {new Date(asset.createdAt).toLocaleString('th-TH')}</p>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right mt-3 sm:mt-0">
                             <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
                               มูลค่ารวม
                             </p>
