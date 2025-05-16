@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db/drizzle';
 import { transactions, users } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, or, inArray } from 'drizzle-orm';
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Parse query parameters
+  const url = new URL(request.url);
+  const includeAll = url.searchParams.get('includeAll') === 'true';
   try {
     const currentUser = await getUser();
     
@@ -17,6 +20,10 @@ export async function GET() {
 
     // If admin, fetch all transactions with user details
     if (currentUser.role === 'admin') {
+      // Define transaction types to include
+      const transactionTypes = ['buy', 'sell', 'EXCHANGE', 'EX_JEWELRY'];
+      
+      // Build the query with conditional where clause
       const allTransactions = await db
         .select({
           id: transactions.id,
@@ -34,6 +41,7 @@ export async function GET() {
         })
         .from(transactions)
         .leftJoin(users, eq(transactions.userId, users.id))
+        .where(includeAll ? undefined : inArray(transactions.type, transactionTypes))
         .orderBy(desc(transactions.createdAt));
 
       return NextResponse.json(allTransactions);

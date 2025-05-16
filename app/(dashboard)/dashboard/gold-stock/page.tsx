@@ -395,9 +395,12 @@ export default function GoldStockPage() {
         grams: '',
         jewelryName: '',
       });
+      
+      // Refresh all data to ensure the Stock History list is updated
       fetchGoldAssets();
       fetchCustomers();
       fetchTotalUserBalance();
+      fetchTransactionHistory(); // Add this to refresh transaction history
     } catch (error) {
       console.error('Error exchanging gold jewelry:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to exchange gold jewelry');
@@ -413,12 +416,83 @@ export default function GoldStockPage() {
   );
   const averagePrice = totalGoldStock > 0 ? totalGoldValue / totalGoldStock : 0;
 
-  // Determine if an asset was added directly (เพิ่ม Stock) or from exchange (ตัด Stock ลูกค้าขายทอง)
-  const isExchangeAsset = (asset: GoldAsset) => {
-    // This is a simplified check - in a real app, you might want to store this information in the database
-    // For now, we'll assume assets with a purchase price divisible by 100 are from direct additions
-    // and others are from exchanges (this is just an example logic)
-    return Number(asset.purchasePrice) % 100 !== 0;
+  // Fetch transaction history to identify jewelry exchanges
+  const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchTransactionHistory();
+  }, []);
+
+  // Define transaction interface to properly type the data
+  interface Transaction {
+    id: number;
+    type: string;
+    amount: string;
+    goldType: string;
+    pricePerUnit: string;
+    totalPrice: string;
+    createdAt: string;
+    updatedAt: string;
+    user?: {
+      id: number;
+      name: string | null;
+      email: string;
+    };
+  }
+
+  async function fetchTransactionHistory() {
+    try {
+      const response = await fetch('/api/transactions/history?includeAll=true');
+      if (response.ok) {
+        const data = await response.json();
+        // Make sure to include all transaction types, especially EX_JEWELRY
+        setTransactionHistory(data);
+        
+        // Refresh the UI when new transactions are loaded
+        if (data.some((tx: Transaction) => tx.type === 'EX_JEWELRY')) {
+          console.log('Gold jewelry exchange transactions found in history');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+      toast.error('Failed to fetch transaction history');
+    }
+  }
+
+  // Determine if an asset was added directly (เพิ่ม Stock), from regular exchange (ตัด Stock ลูกค้าขายทอง),
+  // or from jewelry exchange (ตัด Stock ลูกค้าเเลกทองรูปพรรณ)
+  const getAssetTypeInfo = (asset: GoldAsset) => {
+    // Check if there's a jewelry exchange transaction around the same time as this asset
+    const jewelryExchange = transactionHistory.find(transaction => 
+      transaction.type === 'EX_JEWELRY' && 
+      Math.abs(new Date(transaction.createdAt).getTime() - new Date(asset.createdAt).getTime()) < 60000 // Within 1 minute
+    );
+
+    if (jewelryExchange) {
+      return {
+        type: 'jewelry_exchange',
+        jewelryName: jewelryExchange.goldType, // The jewelry name is stored in the goldType field for EX_JEWELRY transactions
+        userName: jewelryExchange.user?.name || jewelryExchange.user?.email || 'Unknown User',
+        transactionId: jewelryExchange.id
+      };
+    }
+    
+    // Regular exchange check - look for EXCHANGE transaction type first
+    const exchangeTransaction = transactionHistory.find(transaction => 
+      (transaction.type === 'EXCHANGE' || transaction.type === 'sell') && 
+      Math.abs(new Date(transaction.createdAt).getTime() - new Date(asset.createdAt).getTime()) < 60000 // Within 1 minute
+    );
+    
+    if (exchangeTransaction || Number(asset.purchasePrice) % 100 !== 0) {
+      return {
+        type: 'exchange',
+        userName: exchangeTransaction?.user?.name || exchangeTransaction?.user?.email || 'Unknown User',
+        transactionId: exchangeTransaction?.id
+      };
+    }
+    
+    // Default to direct addition
+    return { type: 'addition' };
   };
 
   return (
@@ -531,7 +605,11 @@ export default function GoldStockPage() {
                 <h3 className={`text-lg font-medium mb-4 ${theme === 'dark' ? 'text-white' : ''}`}>Stock History</h3>
                 <div className="space-y-4">
                   {goldAssets.map((asset) => {
-                    const isExchange = isExchangeAsset(asset);
+                    const assetInfo = getAssetTypeInfo(asset);
+                    const isJewelryExchange = assetInfo.type === 'jewelry_exchange';
+                    const isRegularExchange = assetInfo.type === 'exchange';
+                    const isAddition = assetInfo.type === 'addition';
+                    
                     return (
                       <div
                         key={asset.id}
@@ -540,27 +618,49 @@ export default function GoldStockPage() {
                             ? 'bg-[#1a1a1a] border-[#2A2A2A]' 
                             : 'bg-white border-gray-200'
                         } ${
-                          isExchange 
-                            ? theme === 'dark' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-blue-500'
-                            : theme === 'dark' ? 'border-l-4 border-l-green-600' : 'border-l-4 border-l-green-500'
+                          isJewelryExchange
+                            ? theme === 'dark' ? 'border-l-4 border-l-purple-600' : 'border-l-4 border-l-purple-500'
+                            : isRegularExchange
+                              ? theme === 'dark' ? 'border-l-4 border-l-blue-600' : 'border-l-4 border-l-blue-500'
+                              : theme === 'dark' ? 'border-l-4 border-l-green-600' : 'border-l-4 border-l-green-500'
                         }`}
+                        data-transaction-type={isJewelryExchange ? 'jewelry_exchange' : isRegularExchange ? 'exchange' : 'addition'}
+                        data-transaction-id={assetInfo.transactionId || ''}
                       >
                         <div className="flex flex-col sm:flex-row justify-between items-start">
                           <div>
                             <div className="flex items-center">
-                              {isExchange ? (
+                              {isJewelryExchange ? (
+                                <Gem className={`h-4 w-4 mr-2 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-500'}`} />
+                              ) : isRegularExchange ? (
                                 <ArrowUpRight className={`h-4 w-4 mr-2 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-500'}`} />
                               ) : (
                                 <ArrowDownRight className={`h-4 w-4 mr-2 ${theme === 'dark' ? 'text-green-400' : 'text-green-500'}`} />
                               )}
                               <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
-                                {asset.goldType} {isExchange ? '(ตัด Stock)' : '(เพิ่ม Stock)'}
+                                {asset.goldType} {
+                                  isJewelryExchange ? (
+                                    <span className="text-purple-500 font-medium">(ตัด Stock ลูกค้าเเลกทองรูปพรรณ)</span>
+                                  ) : isRegularExchange ? (
+                                    <span className="text-blue-500">(ตัด Stock ลูกค้าขายทอง)</span>
+                                  ) : (
+                                    <span>(เพิ่ม Stock)</span>
+                                  )
+                                }
                               </p>
                             </div>
                             <div className={`mt-1 space-y-1 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
                               <p>จำนวน: {Number(asset.amount).toFixed(4)} บาท</p>
                               <p>({calculateGrams(Number(asset.amount))} กรัม)</p>
                               <p>ราคาซื้อ: ฿{Number(asset.purchasePrice).toLocaleString()}/บาท</p>
+                              {isJewelryExchange && (
+                                <p className="font-medium text-purple-500 mt-2 border-l-2 border-purple-500 pl-2">
+                                  ทองรูปพรรณ: <span className="font-bold">{assetInfo.jewelryName || 'ไม่ระบุ'}</span>
+                                </p>
+                              )}
+                              {(isJewelryExchange || isRegularExchange) && (
+                                <p>ลูกค้า: {assetInfo.userName || 'ไม่ระบุ'}</p>
+                              )}
                               <p>วันที่: {new Date(asset.createdAt).toLocaleString('th-TH')}</p>
                             </div>
                           </div>
