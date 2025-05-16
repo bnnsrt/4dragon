@@ -71,22 +71,40 @@ export function GoldPrices() {
   const [showSlipUploadDialog, setShowSlipUploadDialog] = useState(false);
   const [buyAmount, setBuyAmount] = useState('');
   const [buyPrice, setBuyPrice] = useState(0);
+  const [minimumPurchaseAmount, setMinimumPurchaseAmount] = useState(0);
 
   useEffect(() => {
     fetchData();
+    fetchMinimumPurchaseAmount();
 
-    const channel = pusherClient.subscribe('gold-prices');
-    channel.bind('price-update', (data: { prices: GoldPrice[] }) => {
+    // Subscribe to Pusher channels for real-time updates
+    const pricesChannel = pusherClient.subscribe('gold-prices');
+    const transactionsChannel = pusherClient.subscribe('gold-transactions');
+    
+    // Listen for price updates
+    pricesChannel.bind('price-update', (data: { prices: GoldPrice[] }) => {
       const goldAssociationPrice = data.prices.find(price => price.name === 'สมาคมฯ');
       if (goldAssociationPrice) {
         setPrices([goldAssociationPrice]);
       }
       setLastUpdate(new Date());
     });
+    
+    // Listen for transaction updates (buy, sell, exchange)
+    transactionsChannel.bind('transaction', () => {
+      fetchData();
+    });
+    
+    // Listen for exchange updates
+    transactionsChannel.bind('exchange', () => {
+      fetchData();
+    });
 
     return () => {
-      channel.unbind_all();
-      channel.unsubscribe();
+      pricesChannel.unbind_all();
+      transactionsChannel.unbind_all();
+      pusherClient.unsubscribe('gold-prices');
+      pusherClient.unsubscribe('gold-transactions');
     };
   }, []);
 
@@ -146,6 +164,18 @@ export function GoldPrices() {
     }
   }
 
+  async function fetchMinimumPurchaseAmount() {
+    try {
+      const response = await fetch('/api/minimum-purchase');
+      if (response.ok) {
+        const data = await response.json();
+        setMinimumPurchaseAmount(Number(data.minimumAmount));
+      }
+    } catch (error) {
+      console.error('Error fetching minimum purchase amount:', error);
+    }
+  }
+
   const calculateGrams = (bathAmount: number) => {
     return (bathAmount * BAHT_TO_GRAM).toFixed(2);
   };
@@ -175,6 +205,12 @@ export function GoldPrices() {
     
     if (moneyNum <= 0) {
       toast.error('กรุณาระบุจำนวนเงินที่ถูกต้อง');
+      return;
+    }
+
+    // Check if the amount is below the minimum purchase amount
+    if (minimumPurchaseAmount > 0 && moneyNum < minimumPurchaseAmount) {
+      toast.error(`จำนวนเงินต้องไม่น้อยกว่า ฿${minimumPurchaseAmount.toLocaleString()}`);
       return;
     }
   
@@ -437,6 +473,11 @@ export function GoldPrices() {
                 placeholder="ระบุจำนวนเงินที่ต้องการซื้อ"
                 className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#333] text-white' : ''}
               />
+              {minimumPurchaseAmount > 0 && (
+                <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  ยอดขั้นต่ำ: ฿{minimumPurchaseAmount.toLocaleString()}
+                </p>
+              )}
             </div>
             {moneyAmount && selectedPrice && (
               <div className="space-y-2">
@@ -454,7 +495,12 @@ export function GoldPrices() {
             <Button
               onClick={handleBuySubmit}
               className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white"
-              disabled={!moneyAmount || Number(moneyAmount) <= 0 || isBuyProcessing}
+              disabled={
+                !moneyAmount || 
+                Number(moneyAmount) <= 0 || 
+                isBuyProcessing || 
+                (minimumPurchaseAmount > 0 && Number(moneyAmount) < minimumPurchaseAmount)
+              }
             >
               {isBuyProcessing ? (
                 <>
@@ -465,6 +511,11 @@ export function GoldPrices() {
                 'ดำเนินการต่อ'
               )}
             </Button>
+            {minimumPurchaseAmount > 0 && Number(moneyAmount) < minimumPurchaseAmount && Number(moneyAmount) > 0 && (
+              <p className="text-sm text-red-500">
+                จำนวนเงินต้องไม่น้อยกว่า ฿{minimumPurchaseAmount.toLocaleString()}
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

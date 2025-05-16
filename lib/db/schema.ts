@@ -257,6 +257,14 @@ export const goldProducts = pgTable("gold_products", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// New table for minimum purchase settings
+export const minimumPurchaseSettings = pgTable("minimum_purchase_settings", {
+  id: serial("id").primaryKey(),
+  minimumAmount: decimal("minimum_amount").notNull().default("0"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
 // Relations
 export const teamsRelations = relations(teams, ({ many }) => ({
   teamMembers: many(teamMembers),
@@ -299,6 +307,13 @@ export const markupSettingsRelations = relations(markupSettings, ({ one }) => ({
 export const socialSettingsRelations = relations(socialSettings, ({ one }) => ({
   updatedByUser: one(users, {
     fields: [socialSettings.updatedBy],
+    references: [users.id],
+  }),
+}));
+
+export const minimumPurchaseSettingsRelations = relations(minimumPurchaseSettings, ({ one }) => ({
+  updatedByUser: one(users, {
+    fields: [minimumPurchaseSettings.updatedBy],
     references: [users.id],
   }),
 }));
@@ -436,6 +451,8 @@ export type GoldProduct = InferSelectModel<typeof goldProducts>;
 export type NewGoldProduct = typeof goldProducts.$inferInsert;
 export type DepositLimit = InferSelectModel<typeof depositLimits>;
 export type NewDepositLimit = typeof depositLimits.$inferInsert;
+export type MinimumPurchaseSetting = InferSelectModel<typeof minimumPurchaseSettings>;
+export type NewMinimumPurchaseSetting = typeof minimumPurchaseSettings.$inferInsert;
 export type TeamDataWithMembers = Team & {
   teamMembers: (TeamMember & {
     user: Pick<User, "id" | "name" | "email">;
