@@ -29,6 +29,21 @@ interface User {
   totalGold?: string; // Total gold amount for the user
 }
 
+interface Transaction {
+  id: number;
+  type: string;
+  amount: string;
+  goldType: string;
+  pricePerUnit: string;
+  totalPrice: string;
+  createdAt: string;
+  user?: {
+    id: number;
+    name: string | null;
+    email: string;
+  };
+}
+
 const BAHT_TO_GRAM = 15.2; // 1 baht = 15.2 grams for 96.5% gold
 
 const calculateGrams = (bathAmount: number) => {
@@ -49,8 +64,10 @@ export default function GoldStockPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExchangeDialogOpen, setIsExchangeDialogOpen] = useState(false);
   const [isJewelryExchangeDialogOpen, setIsJewelryExchangeDialogOpen] = useState(false);
+  const [isEditJewelryDialogOpen, setIsEditJewelryDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<GoldAsset | null>(null);
+  const [selectedJewelryTransaction, setSelectedJewelryTransaction] = useState<Transaction | null>(null);
   const [addFormData, setAddFormData] = useState({
     goldType: 'ทองสมาคม 96.5%',
     grams: '',
@@ -72,13 +89,22 @@ export default function GoldStockPage() {
     grams: '',
     jewelryName: '',
   });
+  
+  const [editJewelryFormData, setEditJewelryFormData] = useState({
+    customerId: '',
+    goldType: 'ทองสมาคม 96.5%',
+    grams: '',
+    jewelryName: '',
+  });
   const [totalUserBalance, setTotalUserBalance] = useState(0);
   const [minPurchaseAmount, setMinPurchaseAmount] = useState(0);
+  const [transactionHistory, setTransactionHistory] = useState<Transaction[]>([]);
 
   useEffect(() => {
     fetchGoldAssets();
     fetchTotalUserBalance();
     fetchMinPurchaseAmount();
+    fetchTransactionHistory();
     if (user?.role === 'admin') {
       fetchCustomers();
     }
@@ -158,6 +184,19 @@ export default function GoldStockPage() {
     }
   }
 
+  async function fetchTransactionHistory() {
+    try {
+      const response = await fetch('/api/transactions/history?includeAll=true');
+      if (response.ok) {
+        const data = await response.json();
+        setTransactionHistory(data);
+      }
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+      toast.error('Failed to fetch transaction history');
+    }
+  }
+
   async function fetchCustomers() {
     try {
       // Fetch all users who have gold assets
@@ -225,6 +264,7 @@ export default function GoldStockPage() {
       });
       fetchGoldAssets();
       fetchTotalUserBalance();
+      fetchTransactionHistory();
     } catch (error) {
       console.error('Error adding gold stock:', error);
       toast.error('Failed to add gold stock');
@@ -264,6 +304,7 @@ export default function GoldStockPage() {
       setSelectedAsset(null);
       fetchGoldAssets();
       fetchTotalUserBalance();
+      fetchTransactionHistory();
     } catch (error) {
       console.error('Error updating gold stock:', error);
       toast.error('Failed to update gold stock');
@@ -289,6 +330,7 @@ export default function GoldStockPage() {
       toast.success('Gold asset deleted successfully');
       fetchGoldAssets();
       fetchTotalUserBalance();
+      fetchTransactionHistory();
     } catch (error) {
       console.error('Error deleting gold asset:', error);
       toast.error('Failed to delete gold asset');
@@ -312,9 +354,136 @@ export default function GoldStockPage() {
       toast.success('รายการถูกยกเลิกเรียบร้อยแล้ว');
       fetchGoldAssets();
       fetchTotalUserBalance();
+      fetchTransactionHistory();
     } catch (error) {
       console.error('Error canceling gold asset:', error);
       toast.error('ไม่สามารถยกเลิกรายการได้');
+    }
+  }
+  
+  async function handleDeleteJewelryTransaction(transactionId: number) {
+    if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบรายการแลกทองรูปพรรณนี้?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete jewelry exchange transaction');
+      }
+
+      toast.success('รายการแลกทองรูปพรรณถูกลบเรียบร้อยแล้ว');
+      fetchGoldAssets();
+      fetchTotalUserBalance();
+      fetchTransactionHistory();
+    } catch (error) {
+      console.error('Error deleting jewelry transaction:', error);
+      toast.error('ไม่สามารถลบรายการแลกทองรูปพรรณได้');
+    }
+  }
+  
+  async function handleCancelJewelryTransaction(transactionId: number) {
+    if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการยกเลิกรายการแลกทองรูปพรรณนี้?')) {
+      return;
+    }
+
+    try {
+      // First try to use the dedicated cancel endpoint
+      try {
+        const response = await fetch(`/api/transactions/${transactionId}/cancel`, {
+          method: 'POST',
+        });
+
+        if (response.ok) {
+          toast.success('รายการแลกทองรูปพรรณถูกยกเลิกเรียบร้อยแล้ว');
+          fetchGoldAssets();
+          fetchTotalUserBalance();
+          fetchTransactionHistory();
+          return;
+        }
+
+        // If the endpoint doesn't exist or returns an error, continue to fallback
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('Cancel endpoint failed:', errorData.error || response.statusText);
+      } catch (cancelError) {
+        console.warn('Cancel endpoint not available, using fallback method');
+      }
+
+      // Fallback: Update the transaction directly using the PUT endpoint
+      const transaction = transactionHistory.find(tx => tx.id === transactionId);
+      if (!transaction) {
+        throw new Error('Transaction not found');
+      }
+
+      const updateResponse = await fetch(`/api/transactions/${transactionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: transaction.user?.id.toString() || '',
+          goldType: transaction.goldType,
+          amount: transaction.amount,
+          type: 'CANCEL_EX', // Using shorter type name (max 10 chars)
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to cancel jewelry exchange transaction');
+      }
+
+      toast.success('รายการแลกทองรูปพรรณถูกยกเลิกเรียบร้อยแล้ว');
+      fetchGoldAssets();
+      fetchTotalUserBalance();
+      fetchTransactionHistory();
+    } catch (error) {
+      console.error('Error canceling jewelry transaction:', error);
+      toast.error('ไม่สามารถยกเลิกรายการแลกทองรูปพรรณได้');
+    }
+  }
+  
+  async function handleEditJewelrySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedJewelryTransaction) return;
+    
+    setIsProcessing(true);
+
+    try {
+      // Convert grams to baht before sending to API
+      const bathAmount = calculateBaht(Number(editJewelryFormData.grams));
+
+      const response = await fetch(`/api/transactions/${selectedJewelryTransaction.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerId: editJewelryFormData.customerId,
+          goldType: editJewelryFormData.jewelryName, // Store jewelry name in goldType for EX_JEWELRY
+          amount: bathAmount,
+          type: 'EX_JEWELRY',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update jewelry exchange transaction');
+      }
+
+      toast.success('รายการแลกทองรูปพรรณถูกแก้ไขเรียบร้อยแล้ว');
+      setIsEditJewelryDialogOpen(false);
+      setSelectedJewelryTransaction(null);
+      fetchGoldAssets();
+      fetchTotalUserBalance();
+      fetchTransactionHistory();
+    } catch (error) {
+      console.error('Error updating jewelry transaction:', error);
+      toast.error('ไม่สามารถแก้ไขรายการแลกทองรูปพรรณได้');
+    } finally {
+      setIsProcessing(false);
     }
   }
 
@@ -353,6 +522,7 @@ export default function GoldStockPage() {
       fetchGoldAssets();
       fetchCustomers();
       fetchTotalUserBalance();
+      fetchTransactionHistory();
     } catch (error) {
       console.error('Error exchanging gold:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to exchange gold');
@@ -400,7 +570,7 @@ export default function GoldStockPage() {
       fetchGoldAssets();
       fetchCustomers();
       fetchTotalUserBalance();
-      fetchTransactionHistory(); // Add this to refresh transaction history
+      fetchTransactionHistory();
     } catch (error) {
       console.error('Error exchanging gold jewelry:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to exchange gold jewelry');
@@ -416,55 +586,11 @@ export default function GoldStockPage() {
   );
   const averagePrice = totalGoldStock > 0 ? totalGoldValue / totalGoldStock : 0;
 
-  // Fetch transaction history to identify jewelry exchanges
-  const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetchTransactionHistory();
-  }, []);
-
-  // Define transaction interface to properly type the data
-  interface Transaction {
-    id: number;
-    type: string;
-    amount: string;
-    goldType: string;
-    pricePerUnit: string;
-    totalPrice: string;
-    createdAt: string;
-    updatedAt: string;
-    user?: {
-      id: number;
-      name: string | null;
-      email: string;
-    };
-  }
-
-  async function fetchTransactionHistory() {
-    try {
-      const response = await fetch('/api/transactions/history?includeAll=true');
-      if (response.ok) {
-        const data = await response.json();
-        // Make sure to include all transaction types, especially EX_JEWELRY
-        setTransactionHistory(data);
-        
-        // Refresh the UI when new transactions are loaded
-        if (data.some((tx: Transaction) => tx.type === 'EX_JEWELRY')) {
-          console.log('Gold jewelry exchange transactions found in history');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching transaction history:', error);
-      toast.error('Failed to fetch transaction history');
-    }
-  }
-
-  // Determine if an asset was added directly (เพิ่ม Stock), from regular exchange (ตัด Stock ลูกค้าขายทอง),
-  // or from jewelry exchange (ตัด Stock ลูกค้าเเลกทองรูปพรรณ)
+  // Function to determine if an asset is related to a jewelry exchange transaction
   const getAssetTypeInfo = (asset: GoldAsset) => {
     // Check if there's a jewelry exchange transaction around the same time as this asset
     const jewelryExchange = transactionHistory.find(transaction => 
-      transaction.type === 'EX_JEWELRY' && 
+      (transaction.type === 'EX_JEWELRY' || transaction.type === 'CANCEL_EX') && 
       Math.abs(new Date(transaction.createdAt).getTime() - new Date(asset.createdAt).getTime()) < 60000 // Within 1 minute
     );
 
@@ -473,7 +599,8 @@ export default function GoldStockPage() {
         type: 'jewelry_exchange',
         jewelryName: jewelryExchange.goldType, // The jewelry name is stored in the goldType field for EX_JEWELRY transactions
         userName: jewelryExchange.user?.name || jewelryExchange.user?.email || 'Unknown User',
-        transactionId: jewelryExchange.id
+        transactionId: jewelryExchange.id,
+        isCanceled: jewelryExchange.type === 'CANCEL_EX'
       };
     }
     
@@ -547,6 +674,9 @@ export default function GoldStockPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Gold Jewelry Exchange Transactions Section */}
+   
 
       <Card className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
         <CardHeader>
@@ -721,6 +851,105 @@ export default function GoldStockPage() {
                   })}
                 </div>
               </div>
+              <Card className={`mb-6 ${theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}`}>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Gem className="h-6 w-6 text-purple-500" />
+            <span className={theme === 'dark' ? 'text-white' : ''}>Gold Jewelry Exchange Transactions</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {transactionHistory.filter(tx => tx.type === 'EX_JEWELRY' || tx.type === 'CANCEL_EX').length > 0 ? (
+                transactionHistory
+                  .filter(tx => tx.type === 'EX_JEWELRY' || tx.type === 'CANCEL_EX')
+                  .map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className={`p-4 border rounded-lg ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A]' : 'bg-white border-gray-200'} border-l-4 ${theme === 'dark' ? 'border-l-purple-600' : 'border-l-purple-500'}`}
+                    >
+                      <div className="flex flex-col sm:flex-row justify-between items-start">
+                        <div>
+                          <div className="flex items-center">
+                            <Gem className={`h-4 w-4 mr-2 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-500'}`} />
+                            <p className={`font-medium ${theme === 'dark' ? 'text-white' : ''}`}>
+                              {transaction.goldType} 
+                              <span className="text-purple-500 font-medium">(ทองรูปพรรณ)</span>
+                              {transaction.type === 'CANCEL_EX' && (
+                                <span className="ml-2 text-orange-500 font-medium">(ยกเลิกแล้ว)</span>
+                              )}
+                            </p>
+                          </div>
+                          <div className={`mt-1 space-y-1 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                            <p>จำนวน: {Number(transaction.amount).toFixed(4)} บาท</p>
+                            <p>({calculateGrams(Number(transaction.amount))} กรัม)</p>
+                            <p>ลูกค้า: {transaction.user?.name || transaction.user?.email || 'ไม่ระบุ'}</p>
+                            <p>วันที่: {new Date(transaction.createdAt).toLocaleString('th-TH')}</p>
+                          </div>
+                        </div>
+                        <div className="text-right mt-3 sm:mt-0">
+                          <div className="flex space-x-2 mt-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setSelectedJewelryTransaction(transaction);
+                                setEditJewelryFormData({
+                                  customerId: transaction.user?.id.toString() || '',
+                                  goldType: 'ทองสมาคม 96.5%',
+                                  grams: calculateGrams(Number(transaction.amount)),
+                                  jewelryName: transaction.goldType,
+                                });
+                                setIsEditJewelryDialogOpen(true);
+                              }}
+                              className={theme === 'dark' ? 'border-[#2A2A2A] hover:bg-[#202020]' : ''}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteJewelryTransaction(transaction.id)}
+                              className={`text-red-500 ${
+                                theme === 'dark' 
+                                  ? 'border-[#2A2A2A] hover:bg-[#202020]' 
+                                  : 'hover:bg-red-50'
+                              }`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleCancelJewelryTransaction(transaction.id)}
+                              className={`text-orange-500 ${
+                                theme === 'dark' 
+                                  ? 'border-[#2A2A2A] hover:bg-[#202020]' 
+                                  : 'hover:bg-orange-50'
+                              }`}
+                              title="ยกเลิกรายการ"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+              ) : (
+                <div className={`text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  No gold jewelry exchange transactions available
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
             </div>
           ) : (
             <div className={`text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -1035,6 +1264,94 @@ export default function GoldStockPage() {
                 </>
               ) : (
                 'ยืนยันการเเลกทองรูปพรรณ'
+              )}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Jewelry Exchange Dialog */}
+      <Dialog open={isEditJewelryDialogOpen} onOpenChange={setIsEditJewelryDialogOpen}>
+        <DialogContent className={theme === 'dark' ? 'bg-[#151515] border-[#2A2A2A]' : ''}>
+          <DialogHeader>
+            <DialogTitle className={theme === 'dark' ? 'text-white' : ''}>
+              แก้ไขรายการแลกทองรูปพรรณ
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditJewelrySubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="editJewelryCustomer" className={theme === 'dark' ? 'text-white' : ''}>ลูกค้า</Label>
+              <Select
+                value={editJewelryFormData.customerId}
+                onValueChange={(value) => setEditJewelryFormData(prev => ({ ...prev, customerId: value }))}
+                disabled={isProcessing}
+              >
+                <SelectTrigger className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}>
+                  <SelectValue placeholder="เลือกลูกค้า" />
+                </SelectTrigger>
+                <SelectContent className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}>
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id.toString()}>
+                      {customer.name || customer.email} {customer.totalGold && `(${customer.totalGold} บาท)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="editJewelryType" className={theme === 'dark' ? 'text-white' : ''}>ประเภททอง</Label>
+              <Input
+                id="editJewelryType"
+                value={editJewelryFormData.goldType}
+                disabled
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="editJewelryGrams" className={theme === 'dark' ? 'text-white' : ''}>จำนวน (กรัม)</Label>
+              <Input
+                id="editJewelryGrams"
+                type="number"
+                step="0.01"
+                value={editJewelryFormData.grams}
+                onChange={(e) => setEditJewelryFormData(prev => ({ ...prev, grams: e.target.value }))}
+                placeholder="ระบุจำนวนกรัม"
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+                required
+              />
+              {editJewelryFormData.grams && (
+                <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {calculateBaht(Number(editJewelryFormData.grams))} บาท
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="editJewelryName" className={theme === 'dark' ? 'text-white' : ''}>ชื่อทองรูปพรรณ</Label>
+              <Input
+                id="editJewelryName"
+                value={editJewelryFormData.jewelryName}
+                onChange={(e) => setEditJewelryFormData(prev => ({ ...prev, jewelryName: e.target.value }))}
+                placeholder="ระบุชื่อทองรูปพรรณ"
+                className={theme === 'dark' ? 'bg-[#1a1a1a] border-[#2A2A2A] text-white' : ''}
+                required
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังบันทึก...
+                </>
+              ) : (
+                'บันทึกการแก้ไข'
               )}
             </Button>
           </form>
