@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2, DollarSign, ArrowUpRight, ArrowDownRight, Gem } from 'lucide-react';
+import { ShieldAlert, Package, Loader2, Plus, Tangent as Exchange, Pencil, Trash2, DollarSign, ArrowUpRight, ArrowDownRight, Gem, XCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
@@ -294,6 +294,29 @@ export default function GoldStockPage() {
       toast.error('Failed to delete gold asset');
     }
   }
+  
+  async function handleCancelAsset(assetId: number) {
+    if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการยกเลิกรายการนี้?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/gold-assets/${assetId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel gold asset');
+      }
+
+      toast.success('รายการถูกยกเลิกเรียบร้อยแล้ว');
+      fetchGoldAssets();
+      fetchTotalUserBalance();
+    } catch (error) {
+      console.error('Error canceling gold asset:', error);
+      toast.error('ไม่สามารถยกเลิกรายการได้');
+    }
+  }
 
   async function handleExchangeSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -573,6 +596,19 @@ export default function GoldStockPage() {
                                 }`}
                               >
                                 <Trash2 className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleCancelAsset(asset.id)}
+                                className={`text-orange-500 ${
+                                  theme === 'dark' 
+                                    ? 'border-[#2A2A2A] hover:bg-[#202020]' 
+                                    : 'hover:bg-orange-50'
+                                }`}
+                                title="ยกเลิกรายการ"
+                              >
+                                <XCircle className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
