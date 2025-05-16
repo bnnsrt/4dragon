@@ -707,7 +707,7 @@ export default function GoldStockPage() {
             size="sm"
           >
             <Plus className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="whitespace-nowrap">เพิ่มทอง</span>
+            <span className="whitespace-nowrap">เพิ่มทองลูกค้าซื้อ</span>
           </Button>
           <Button 
             onClick={() => setIsAddDialogOpen(true)}
@@ -715,7 +715,7 @@ export default function GoldStockPage() {
             size="sm"
           >
             <Plus className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="whitespace-nowrap">เพิ่ม Stock</span>
+            <span className="whitespace-nowrap">เพิ่ม Stock ร้านใหญ่</span>
           </Button>
         </div>
       </div>
